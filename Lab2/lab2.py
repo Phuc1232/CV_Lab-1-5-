@@ -172,9 +172,8 @@ def compareFilter(img, numNoise):
 
 def main():
   # Đọc ảnh và chuyển không gian màu
-  # path = input("Nhập đường dẫn đến hình")
-  imgRGB = cv2.cvtColor(cv2.imread(r"C:\Users\TAN LOC\Desktop\CV_Lab-1-5-\Lab2\shapes.jpg"), cv2.COLOR_BGR2RGB)
-  # imgRGB = cv2.cvtColor(cv2.imread("/content/shapes.jpg"), cv2.COLOR_BGR2RGB)
+  path = input("Nhập đường dẫn đến hình")
+  imgRGB = cv2.cvtColor(cv2.imread(path), cv2.COLOR_BGR2RGB)
   imgGray = cv2.cvtColor(imgRGB, cv2.COLOR_RGB2GRAY)
 
   # thực thi phần 1
