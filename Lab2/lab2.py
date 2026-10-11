@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 
 #PI 1. thay đổi độ sáng
 #PI 2. Thay đổi độ tương phản
-def lightAndContrast(img, light=1.0, contrast=1.0):
+def lightAndContrast(img, light=0, contrast=1.0):
   # nếu để nguyên thì kiểu dữ liệu img sẽ là uint8 [0,255] và cộng vào vượt 256 sẽ tự động mod 256 và gán lại
   # vậy để co thể điều chỉnh mức độ ta cần chuyển về dãi rộng hơn
   imgLightAndContrast = contrast * img.astype(np.float32) + light
@@ -73,13 +73,15 @@ def detectionEdge(img):
 
   fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(10, 10))
 
-  axes[0].imshow(imgSobel)
+  axes[0].imshow(imgSobel, cmap='gray')
   axes[0].set_title("Phát hiện cạnh với Sobel")
   axes[0].axis("off")
 
-  axes[1].imshow(imgPrewitt)
+  axes[1].imshow(imgPrewitt, cmap='gray')
   axes[1].set_title("Phát hiện cạnh với Prewitt")
   axes[1].axis("off")
+
+  plt.show()
 
 #PIII 2. tự thiết kế kernel
 def designKernelAndFilter(img):
@@ -188,11 +190,11 @@ def main():
   axes[0,1].set_title("Giảm độ sáng")
   axes[0,1].axis("off")
 
-  axes[1,0].imshow(lightAndContrast(imgRGB, 1, 1.5))
+  axes[1,0].imshow(lightAndContrast(imgRGB, 0, 1.5))
   axes[1,0].set_title("Tăng độ tương phản")
   axes[1,0].axis("off")
 
-  axes[1,1].imshow(lightAndContrast(imgRGB, 1, 0.5))
+  axes[1,1].imshow(lightAndContrast(imgRGB, 0, 0.95))
   axes[1,1].set_title("Giảm độ tương phản")
   axes[1,1].axis("off")
 
