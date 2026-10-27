@@ -12,7 +12,7 @@ Khi hỗ trợ viết code cho thư mục Lab4 này, AI Agent phải tuân thủ
 
 3. PHONG CÁCH LẬP TRÌNH :
 - Ưu tiên sự ĐƠN GIẢN: Không sử dụng OOP/Class. Dùng các hàm (def) xử lý tuần tự.
-- Đặt tên biến/hàm: Dùng tiếng Việt không dấu, gạch dưới (snake_case).
+- Đặt tên biến/hàm: Dùng tiếng Việt không dấu, gạch dưới.
 - Bắt buộc chú thích các bước xử lý thuật toán bằng tiếng Việt.
 - Giải thích rõ các thông số thuật toán quan trọng (như threshold = 150, wavelet = 'db4').
 
