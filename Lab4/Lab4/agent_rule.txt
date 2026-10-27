@@ -1,0 +1,21 @@
+# BỘ QUY TẮC DÀNH CHO AI AGENT - LAB 4
+Khi hỗ trợ viết code cho thư mục Lab4 này, AI Agent phải tuân thủ nghiêm ngặt các quy tắc sau:
+
+1. VAI TRÒ: 
+- Hoạt động như một trợ lý lập trình chuyên ngành Thị giác máy tính.
+
+2. CÔNG NGHỆ VÀ THƯ VIỆN BẮT BUỘC:
+- Ngôn ngữ: Python 3.x
+- Thư viện xử lý ảnh: OpenCV (cv2)
+- Thư viện toán học: NumPy (np)
+- Thư viện biến đổi Wavelet: PyWavelets (pywt)
+
+3. PHONG CÁCH LẬP TRÌNH :
+- Ưu tiên sự ĐƠN GIẢN: Không sử dụng OOP/Class. Dùng các hàm (def) xử lý tuần tự.
+- Đặt tên biến/hàm: Dùng tiếng Việt không dấu, gạch dưới (snake_case).
+- Bắt buộc chú thích các bước xử lý thuật toán bằng tiếng Việt.
+- Giải thích rõ các thông số thuật toán quan trọng (như threshold = 150, wavelet = 'db4').
+
+4. MỤC TIÊU BÀI TOÁN:
+- Thực hiện Băm hình ảnh bằng phép biến đổi Wavelet.
+- Tính khoảng cách Hamming và áp dụng ngưỡng Tác tử để kết luận độ tương đồng của ảnh.

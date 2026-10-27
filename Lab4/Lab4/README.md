@@ -1,4 +1,4 @@
-# BÀI THỰC HÀNH 4: SO SÁNH SỰ TƯƠNG ĐỒNG CỦA CÁC HÌNH ẢNH SỬ DỤNG WAVELET HASH
+﻿# BÀI THỰC HÀNH 4: SO SÁNH SỰ TƯƠNG ĐỒNG CỦA CÁC HÌNH ẢNH SỬ DỤNG WAVELET HASH
 
 **Môn học:** Thị giác máy tính (Computer Vision)
 **Giảng viên hướng dẫn:** TS. Nguyễn Thị Khánh Tiên
@@ -46,3 +46,16 @@ Lab4/
 │   └── anh2_challenge.jpg       # Ảnh 2 đã bị thêm nhiễu/vẽ bậy
 ├── Lab4.py                      # Mã nguồn chính chạy Wavelet Hash & Agent Rule
 └── README.md                    # Tài liệu báo cáo
+```
+
+---
+
+## 6. Giải quyết Bài tập nâng cao
+### 6.1. Khảo sát và so sánh các phương pháp băm Wavelet
+Trong quá trình phát triển, hệ thống đã chạy thử nghiệm các họ Wavelet khác nhau:
+- **Haar Wavelet:** Tốc độ tính toán nhanh nhưng khả năng kháng nhiễu xoay (Rotation invariance) kém, khoảng cách Hamming dao động mạnh khi ảnh bị xoay 90 độ hoặc 180 độ.
+- **Daubechies (db4):** Cho sự cân bằng tối ưu. Dải xấp xỉ LL kháng mờ (Gaussian Blur) và nhiễu cực tốt, giữ khoảng cách Hamming ổn định dưới ngưỡng 150 đối với cả ảnh gốc và ảnh challenge. Quyết định chọn `db4` và `level=3` làm core cho Agent.
+
+### 6.2. Ứng dụng tìm kiếm hình ảnh và Data Augmentation
+- Đã xây dựng script `tao_du_lieu.py` tự động sinh ảnh xoay góc và làm mờ để tăng cường dataset.
+- Đã xây dựng module `app_tim_kiem.py`. Ứng dụng sẽ băm ảnh đầu vào, quét toàn bộ thư mục `dataset` để tính khoảng cách Hamming chéo, sau đó trích xuất ra top 3 bức ảnh có độ tương đồng cao nhất trong cơ sở dữ liệu.
