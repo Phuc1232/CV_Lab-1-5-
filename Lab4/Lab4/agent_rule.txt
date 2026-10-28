@@ -18,4 +18,4 @@ Khi hỗ trợ viết code cho thư mục Lab4 này, AI Agent phải tuân thủ
 
 4. MỤC TIÊU BÀI TOÁN:
 - Thực hiện Băm hình ảnh bằng phép biến đổi Wavelet.
-- Tính khoảng cách Hamming và áp dụng ngưỡng Tác tử để kết luận độ tương đồng của ảnh.
+- Tính khoảng cách Hamming và áp dụng ngưỡng Tác tử để kết luận độ tương đồng của ảnh. 
