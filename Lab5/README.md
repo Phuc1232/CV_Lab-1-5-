@@ -80,6 +80,7 @@ $$\text{Cosine Similarity}(\mathbf{u}, \mathbf{v}) = \frac{\mathbf{u} \cdot \mat
 ```
 Lab5/
 ├── AGENTS.md            # Quy định kiến trúc Multi-Agent & quy trình kiểm thử
+├── CHEATSHEET.md        # Cẩm nang tra cứu toàn bộ thông số, cụm code & giải thích toán học
 ├── Lab5.py              # Ứng dụng nhận diện thời gian thực qua Webcam
 ├── register_face.py     # Công cụ đăng ký khuôn mặt mới (Webcam / Ảnh)
 ├── test_lab5.py         # Bộ kiểm thử tự động (Unit Tests với pytest)
