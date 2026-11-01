@@ -1,242 +1,484 @@
+import os
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 
+# ==========================================
+# 1. HÀM HIỂN THỊ VÀ TRỰC QUAN HÓA (DISPLAY)
+# ==========================================
 
-#PI 1. thay đổi độ sáng
-#PI 2. Thay đổi độ tương phản
+def displayIMG(titles_list, images_list, w, h, histogram=False, forceGray=False, nameWindown=""):
+    """
+    Hàm hiển thị danh sách nhiều ảnh cạnh nhau một cách linh hoạt, kèm theo Histogram tùy chọn.
+    
+    Args:
+        titles_list (list): Danh sách tiêu đề cho từng ảnh.
+        images_list (list): Danh sách các mảng numpy chứa dữ liệu ảnh.
+        w (int): Chiều rộng khung hình matplotlib.
+        h (int): Chiều cao khung hình matplotlib.
+        histogram (bool): True để hiển thị thêm hàng đồ thị Histogram bên dưới.
+        forceGray (bool): True để ép kiểu hiển thị ảnh xám (dùng cmap='gray').
+        window_title (str): Tiêu đề hiển thị trên thanh tiêu đề của cửa sổ Matplotlib..
+    """
+    colum = len(images_list)
+    row = 2 if histogram else 1
+    fig, axes = plt.subplots(row, colum, figsize=(w, h), squeeze=False)
+
+    # --- ĐẶT TIÊU ĐỀ CHO CỬA SỔ HIỂN THỊ (WINDOW TITLE) ---
+    try:
+        fig.canvas.manager.set_window_title(nameWindown)
+    except AttributeError:
+        pass # Phòng hờ trường hợp môi trường chạy không hỗ trợ window manager (như một số notebook online)
+    
+    colors = ('r', 'g', 'b')  # Chuẩn màu RGB cho matplotlib
+
+    for i in range(colum):
+        # --- HÀNG 1: HIỂN THỊ ẢNH ---
+        if forceGray:
+            axes[0, i].imshow(images_list[i], cmap="gray")
+        else:
+            axes[0, i].imshow(images_list[i])
+        axes[0, i].set_title(titles_list[i], fontsize=10, fontweight='bold')
+        axes[0, i].axis("off")
+
+        # --- HÀNG 2: HIỂN THỊ HISTOGRAM (NẾU ĐƯỢC BẬT) ---
+        if histogram:
+            current_img = images_list[i]
+            if forceGray or len(current_img.shape) == 2:
+                # Tính histogram cho ảnh xám 1 kênh
+                hist = cv2.calcHist([current_img], [0], None, [256], [0, 256])
+                axes[1, i].plot(hist, color="gray", alpha=0.8)
+            else:
+                # Tính histogram cho từng kênh màu R, G, B
+                for c, col in enumerate(colors):
+                    hist = cv2.calcHist([current_img], [c], None, [256], [0, 256])
+                    axes[1, i].plot(hist, color=col, alpha=0.8)
+                
+            axes[1, i].set_xlim([0, 256])
+            axes[1, i].grid(True, linestyle='--', alpha=0.5)
+            
+            if i == 0:
+                axes[1, i].set_ylabel("Tần suất (Số lượng)")
+            axes[1, i].set_xlabel("Giá trị Pixel")
+            axes[1, i].set_title(f"Hist: {titles_list[i]}", fontsize=9)
+
+    plt.tight_layout()
+    plt.show()
+
+# ==========================================
+# 2. BỘ XỬ LÝ ĐIỂM ẢNH (POINT PROCESSING)
+# ==========================================
+
 def lightAndContrast(img, light=0, contrast=1.0):
-  # nếu để nguyên thì kiểu dữ liệu img sẽ là uint8 [0,255] và cộng vào vượt 256 sẽ tự động mod 256 và gán lại
-  # vậy để co thể điều chỉnh mức độ ta cần chuyển về dãi rộng hơn
-  imgLightAndContrast = contrast * img.astype(np.float32) + light
+    """
+      Điều chỉnh độ sáng và độ tương phản của ảnh sử dụng phép toán vector hóa.
+      
+      Args:
+          img (np.ndarray): Ảnh đầu vào (có thể là ảnh xám 2D hoặc ảnh màu RGB/BGR 3D).
+          light (int/float): Giá trị cộng thêm để thay đổi độ sáng (-255 đến 255).
+          contrast (float): Hệ số nhân để thay đổi độ tương phản (> 0).
+          
+      Returns:
+          np.ndarray: Ảnh sau khi biến đổi (kiểu uint8).
+      """
+    img_processed = contrast * img.astype(np.float32) + light
+    result = np.clip(img_processed, 0, 255)
+    return result.astype(np.uint8)
 
-  # đưa các pixel < 0 về 0 và >255 về 255
-  result = np.clip(imgLightAndContrast, 0, 255)
 
-  return result.astype(np.uint8)
+def imgNative(img):
+    """
+      Thực hiện biến đổi âm bản cho ảnh xám hoặc ảnh màu.
+          s = 255 - r
+      Trong đó:
+          r: Giá trị cường độ sáng của pixel ở ảnh gốc.
+          s: Giá trị cường độ sáng của pixel sau khi biến đổi.
+      
+      Args:
+          img (np.ndarray): Ảnh đầu vào (có thể là ảnh xám 2D hoặc ảnh màu RGB/BGR 3D).
+          
+      Returns:
+          np.ndarray: Ảnh âm bản sau khi đảo ngược giá trị pixel (kiểu uint8).
+    """
+    return 255 - img
 
 
-#PI 3. Biến đổi âm bản
-def imgNegative(img):
-  return 255 - img
+def imgBinary(img, threshold=128):
+    """
+      Thực hiện cắt ngưỡng nhị phân hóa (Binary Thresholding) trên ảnh xám.
+      
+      Lý do cần đầu vào Grayscale:
+          Phép cắt ngưỡng chỉ dựa trên một chiều cường độ sáng (intensity) duy nhất. 
+          Nếu dùng ảnh màu 3 kênh (RGB), việc cắt ngưỡng độc lập trên từng kênh sẽ 
+          làm biến dạng màu sắc và không tạo ra ảnh nhị phân đen/trắng thuần túy.
+      
+      Args:
+          imgGray (np.ndarray): Ảnh đầu vào (Bắt buộc phải là ảnh xám 2D - Grayscale).
+          threshold (int): Giá trị ngưỡng phân chia, từ 0 đến 255 (mặc định là 128).
+          
+      Returns:
+          np.ndarray: Ảnh nhị phân kết quả, chỉ chứa đúng 2 giá trị 0 (Đen) và 255 (Trắng).
+    """
+    img_binary = img.copy()
+    img_binary[img_binary < threshold] = 0
+    img_binary[img_binary >= threshold] = 255
+    return img_binary
 
-#PI 4. Cắt ngưỡng
-def imgBinary(img):
-  imgBinary = img.copy()
-  imgBinary[imgBinary < 128] = 0
-  imgBinary[imgBinary >= 128] = 255
-  return imgBinary
+# ==========================================
+# 3. BỘ LỌC KHÔNG GIAN VÀ KHỬ NHIỄU (FILTERS)
+# ==========================================
 
-#PII 1. Lọc trung bình
-def filterMean(img):
-  return cv2.blur(img, (5,5))
+def filterMean(img, k, border=cv2.BORDER_DEFAULT):
+    """
+    Thực hiện lọc trung bình (Mean Filter) để làm mờ và khử nhiễu.
+        
+        Args:
+            img (np.ndarray): Ảnh đầu vào (ảnh xám hoặc ảnh màu).
+            k: kích thước kernel
+            border: cách xử lý pixel biên của ảnh
+            
+        Returns:
+            np.ndarray: Ảnh sau khi được làm mờ qua bộ lọc trung bình kích thước k.
+    """
+    return cv2.blur(img, (k, k), borderType=border)
 
-#PII 2. Lọc Gaussian
-def filterGaussian(img):
-  return cv2.GaussianBlur(img, (5,5), 0)
 
-#PII 3. Làm nét
-def filterSharpen(img):
-  kernel = np.array([
-    [0,-1,0],
-    [-1,5,-1],
-    [0,-1,0]
-  ], dtype = np.float32)
-  return cv2.filter2D(img, -1, kernel)
+def filterGaussian(img, k, sigma, border=cv2.BORDER_DEFAULT):
+    """
+    Thực hiện lọc Gaussian để làm mờ và khử nhiễu tự nhiên.
+        
+        Args:
+            img (np.ndarray): Ảnh đầu vào (ảnh xám hoặc ảnh màu).
+            k (int): Kích thước kernel (khuyến nghị số lẻ, vd: 3, 5, 7).
+            sigma (float): Độ lệch chuẩn của phân phối Gaussian.
+            
+        Returns:
+            np.ndarray: Ảnh sau khi qua bộ lọc Gaussian.
+    """
+    return cv2.GaussianBlur(img, (k, k), sigma, borderType=border)
 
-#PIII 1. Phát hiện cạnh
-def detectionEdge(img):
-  # Lọc theo từng hướng 
-  imgSobelx = cv2.convertScaleAbs(cv2.Sobel(img, cv2.CV_64F, 1, 0, ksize=3))
-  imgSobely = cv2.convertScaleAbs(cv2.Sobel(img, cv2.CV_64F, 0, 1, ksize=3))
 
-  # gộp lại
-  imgSobel = cv2.convertScaleAbs(cv2.addWeighted(np.abs(imgSobelx), 0.5, np.abs(imgSobely), 0.5, 0))
+def filterSharpen(img, kernel=None):
+    """
+    Thực hiện làm nét ảnh bằng cách tự thiết kế Custom Kernel.
+        
+        Args:
+            img (np.ndarray): Ảnh đầu vào (ảnh xám hoặc ảnh màu).
+            kernel (np.ndarray, optional): Ma trận kernel tùy chỉnh dùng để làm nét. 
+                                           Mặc định là None (sẽ tự động dùng kernel chuẩn 3x3 với trọng số làm nét tiêu chuẩn).
+            
+        Returns:
+            np.ndarray: Ảnh sau khi được làm sắc nét.
+    """
+    if kernel is None:
+        kernel = np.array([
+            [ 0, -1,  0],
+            [-1,  5, -1],
+            [ 0, -1,  0]
+        ], dtype=np.float32)
 
-  kernelPrewittx = np.array([
-    [-1,0,1],
-    [-1,0,1],
-    [-1,0,1]
-  ])
+    if not isinstance(kernel, np.ndarray):
+        raise TypeError("Kernel phải là một đối tượng numpy.ndarray!")
+    if kernel.ndim != 2:
+        raise ValueError(f"Kernel phải có 2 chiều, hiện tại là {kernel.ndim} chiều.")
 
-  kernelPrewitty = np.array([
-    [-1,-1,-1],
-    [0,0,0],
-    [1,1,1]
-  ])
-  # Lọc theo từng hường 
-  imgPrewittx = cv2.filter2D(img, cv2.CV_64F, kernelPrewittx)
-  imgPrewitty = cv2.filter2D(img, cv2.CV_64F, kernelPrewitty)
+    rows, cols = kernel.shape
+    if rows % 2 == 0 or cols % 2 == 0:
+        raise ValueError(f"Kích thước kernel phải là số lẻ, hiện tại là {rows}x{cols}.")
 
-  #gộp lại
-  imgPrewitt = cv2.convertScaleAbs(cv2.addWeighted(np.abs(imgPrewittx), 0.5, np.abs(imgPrewitty), 0.5, 0))
+    kernel_sum = np.sum(kernel)
+    if not np.isclose(kernel_sum, 1.0, atol=1e-5):
+        print(f"⚠️ Cảnh báo: Tổng kernel = {kernel_sum:.2f} (Khuyên dùng sum = 1.0 để giữ nguyên độ sáng).")
 
-  fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(10, 10))
+    return cv2.filter2D(img, -1, kernel)
 
-  axes[0].imshow(imgSobel, cmap='gray')
-  axes[0].set_title("Phát hiện cạnh với Sobel")
-  axes[0].axis("off")
 
-  axes[1].imshow(imgPrewitt, cmap='gray')
-  axes[1].set_title("Phát hiện cạnh với Prewitt")
-  axes[1].axis("off")
+def detectEdges(imgGray, method="sobel", ksize=3):
+    """ 
+    Phát hiện biên sử dụng toán tử Sobel hoặc Prewitt.
+    
+    Args:
+        imgGray (np.ndarray): Ảnh đầu vào (bắt buộc là ảnh xám 2D).
+        method (str): Phương pháp chọn ("sobel" hoặc "prewitt").
+        ksize (int): Kích thước kernel (thường là 3).
+        
+    Returns:
+        np.ndarray: Ảnh biên tổng hợp sau khi xử lý.
+    """
+    if method.lower() == "sobel":
+        grad_x = cv2.Sobel(imgGray, cv2.CV_64F, 1, 0, ksize=ksize)
+        grad_y = cv2.Sobel(imgGray, cv2.CV_64F, 0, 1, ksize=ksize)
+    elif method.lower() == "prewitt":
+        kernel_x = np.array([[-1, 0, 1], [-1, 0, 1], [-1, 0, 1]], dtype=np.float32)
+        kernel_y = np.array([[-1, -1, -1], [0, 0, 0], [1, 1, 1]], dtype=np.float32)
+        grad_x = cv2.filter2D(imgGray, cv2.CV_64F, kernel_x)
+        grad_y = cv2.filter2D(imgGray, cv2.CV_64F, kernel_y)
+    else:
+        raise ValueError("Phương pháp không hợp lệ! Hãy chọn 'sobel' hoặc 'prewitt'.")
 
-  plt.show()
+    # Tính độ lớn Gradient tổng hợp (Magnitude)
+    magnitude = cv2.magnitude(grad_x, grad_y)
+    return cv2.convertScaleAbs(magnitude)
 
-#PIII 2. tự thiết kế kernel
-def designKernelAndFilter(img):
-  kernel1 = np.array([
-    [1,2,1],
-    [2,4,2],
-    [1,2,1]
-  ], dtype = np.float32)/16
 
-  kernel2 = np.array([
-    [1,0,0,0,0],
-    [0,1,0,0,0],
-    [0,0,1,0,0],
-    [0,0,0,1,0],
-    [0,0,0,0,1]
-  ], dtype = np.float32)/5
+def designKernelAndFilter(imgGray):
+    """
+        Hàm thiết kế các Custom Kernel tùy chỉnh và trực quan hóa kết quả qua lưới 2x2.
+        
+        Args:
+            img (np.ndarray): Ảnh đầu vào (khuyến nghị ảnh xám 2D).
+    """
+    # 1. Blur Gaussian 3x3 thủ công
+    kernel1 = np.array([
+        [1, 2, 1],
+        [2, 4, 2],
+        [1, 2, 1]
+    ], dtype=np.float32) / 16.0
 
-  kernel3 = np.array([
-    [0,-1,0],
-    [-1,5,-1],
-    [0,-1,0]
-  ], dtype = np.float32)
+    # 2. Blur chuyển động chéo (Motion Blur)
+    kernel2 = np.array([
+        [1, 0, 0, 0, 0],
+        [0, 1, 0, 0, 0],
+        [0, 0, 1, 0, 0],
+        [0, 0, 0, 1, 0],
+        [0, 0, 0, 0, 1]
+    ], dtype=np.float32) / 5.0
 
-  kernel4 = np.array([
-    [-1,-1,-1],
-    [-1,9,-1],
-    [-1,-1,-1]
-  ], dtype = np.float32)
+    # 3. Làm nét tiêu chuẩn
+    kernel3 = np.array([
+        [ 0, -1,  0],
+        [-1,  5, -1],
+        [ 0, -1,  0]
+    ], dtype=np.float32)
 
-  fig, axes = plt.subplots(nrows=2, ncols=2, figsize=(10, 10))
+    # 4. Làm nét mạnh (High-pass filter)
+    kernel4 = np.array([
+        [-1, -1, -1],
+        [-1,  9, -1],
+        [-1, -1, -1]
+    ], dtype=np.float32)
 
-  axes[0,0].imshow(cv2.filter2D(img, -1, kernel1), cmap='gray')
-  axes[0,0].set_title("Làm mờ tự nhiên")
-  axes[0,0].axis("off")
+    images_list = [
+        imgGray,
+        cv2.filter2D(imgGray, -1, kernel1),
+        cv2.filter2D(imgGray, -1, kernel2),
+        cv2.filter2D(imgGray, -1, kernel3),
+        cv2.filter2D(imgGray, -1, kernel4)
+    ]
+    titles_list = [
+        "Ảnh gốc xám",
+        "Làm mờ Gauss (Custom 3x3)",
+        "Làm mờ chuyển động chéo",
+        "Làm nét tiêu chuẩn",
+        "Làm nét mạnh"
+    ]
 
-  axes[0,1].imshow(cv2.filter2D(img, -1, kernel2), cmap='gray')
-  axes[0,1].set_title("làm mờ theo chuyển động chéo")
-  axes[0,1].axis("off")
+    displayIMG(titles_list, images_list, 20, 8, forceGray=True, nameWindown="PIII 2. Thiết kế ma trận Kernel")
 
-  axes[1,0].imshow(cv2.filter2D(img, -1, kernel3), cmap='gray')
-  axes[1,0].set_title("Làm sắc nét hình tiêu chuẩn")
-  axes[1,0].axis("off")
+# ==========================================
+# 4. TẠO NHIỄU VÀ SO SÁNH KHỬ NHIỄU
+# ==========================================
 
-  axes[1,1].imshow(cv2.filter2D(img, -1, kernel4), cmap='gray')
-  axes[1,1].set_title("Làm nét hình mạnh")
-  axes[1,1].axis("off")
+def addGaussianNoise(img, mean=0, var=25):
+    """
+        Thêm nhiễu Gauss (Additive Gaussian Noise) vào ảnh.
+        
+        Args:
+            img (np.ndarray): Ảnh đầu vào.
+            mean (float): Giá trị trung bình của nhiễu.
+            var (float): Phương sai (variance) của nhiễu.
+        Returns:
+                np.ndarray: Ảnh sau khi đã được gán nhiễu.
+    """
+    sigma = var ** 0.5
+    gaussian_noise = np.random.normal(mean, sigma, img.shape)
+    imgNoisy = img.astype(np.float32) + gaussian_noise
+    return np.clip(imgNoisy, 0, 255).astype(np.uint8)
 
-  plt.show()
 
-#PIII 3. So sánh các bộ lọc
-#PIII 4. Lọc với các vộ lọc phi tuyến tính
-def compareFilter(img, numNoise):
-  imgNoisy = img.copy()
-  # Thêm ngẫu nhiên các điểm nhiễu trắng/đen
-  for i in range(numNoise):
-      yCoord = np.random.randint(0, img.shape[0])
-      xCoord = np.random.randint(0, img.shape[1])
-      imgNoisy[yCoord, xCoord] = 255 if np.random.rand() > 0.5 else 0
+def addSaltNoise(img, ratio = 0.01):
+    """
+    Thêm nhiễu muối tiêu (Salt-and-Pepper Noise) vào ảnh với tỷ lệ tùy chỉnh.
+    
+    Args:
+        img (np.ndarray): Ảnh đầu vào.
+        ratio (float): Tỷ lệ pixel bị nhiễu so với tổng số pixel (mặc định là 0.01 tương đương 1%).
+                       Ví dụ: 0.02 là 2%, 0.05 là 5%.
+        
+    Returns:
+        np.ndarray: Ảnh sau khi đã được gán nhiễu.
+    """
+    numNoise = int(img.size * ratio)
+    imgNoisy = img.copy()
+    for _ in range(numNoise):
+        yCoord = np.random.randint(0, img.shape[0])
+        xCoord = np.random.randint(0, img.shape[1])
+        imgNoisy[yCoord, xCoord] = 255 if np.random.rand() > 0.5 else 0
+    return imgNoisy
 
-  # Thực thi 4 loại lọc trên cùng một ảnh có nhiễu
-  mean = cv2.blur(imgNoisy, (5,5))
-  gaussian = cv2.GaussianBlur(imgNoisy, (5,5), 0)
-  median = cv2.medianBlur(imgNoisy, 5)
-  bilateral = cv2.bilateralFilter(imgNoisy, 9, 75, 75)
 
-  # Hiển thị so sánh 
-  fig, axes = plt.subplots(nrows=1, ncols=5, figsize=(10, 10))
-  
-  axes[0].imshow(imgNoisy, cmap='gray' )
-  axes[0].set_title("1. Ảnh có nhiễu/biên")
-  axes[0].axis("off")
+def compareFilter(imgGray, typeNoise="salt"):
+    """
+       So sánh trực quan 4 bộ lọc không gian trên ảnh bị gán nhiễu nhân tạo.
+       
+       Args:
+           img (np.ndarray): Ảnh đầu vào (khuyến nghị ảnh xám 2D).
+           typeNoise (str): Loại nhiễu ("salt" hoặc "gaussian").
+    """ 
+    if typeNoise.lower() == "salt":
+        imgNoisy = addSaltNoise(imgGray)
+        noise_name = "Nhiễu muối tiêu"
+    else:
+        imgNoisy = addGaussianNoise(imgGray, mean=0, var=25)
+        noise_name = "Nhiễu Gaussian"
 
-  axes[1].imshow(mean, cmap='gray' )
-  axes[1].set_title("2. Lọc trung bình")
-  axes[1].axis("off")
+    images_list = [
+        imgGray,
+        imgNoisy,
+        cv2.blur(imgNoisy, (5, 5)),
+        cv2.GaussianBlur(imgNoisy, (5, 5), 0.85),
+        cv2.medianBlur(imgNoisy, 5),
+        cv2.bilateralFilter(imgNoisy, 9, 75, 75)
+    ]
 
-  axes[2].imshow(gaussian, cmap='gray')
-  axes[2].set_title("3. Lọc Gaussian")
-  axes[2].axis("off")
+    titles_list = [
+        "Ảnh gốc xám",
+        f"Ảnh bị {noise_name}",
+        "Mean Filter",
+        "Gaussian Filter",
+        "Median Filter",
+        "Bilateral Filter"
+    ]
 
-  axes[3].imshow(median, cmap='gray')
-  axes[3].set_title("4. Lọc Median")
-  axes[3].axis("off")
+    displayIMG(titles_list, images_list, 22, 6, forceGray=True, nameWindown="PIII 3. Khao sát so sánh hiệu quả khử nhiễu")
 
-  axes[4].imshow(bilateral, cmap='gray')
-  axes[4].set_title("5. Lọc Bilateral")
-  axes[4].axis("off")
-
-  plt.show()
+# ==========================================
+# 5. HÀM ĐIỀU KHIỂN CHÍNH (MAIN EXECUTION)
+# ==========================================
 
 def main():
-  # Đọc ảnh và chuyển không gian màu
-  path = input("Nhập đường dẫn đến hình")
-  imgRGB = cv2.cvtColor(cv2.imread(path), cv2.COLOR_BGR2RGB)
-  imgGray = cv2.cvtColor(imgRGB, cv2.COLOR_RGB2GRAY)
-
-  # thực thi phần 1
-  print("I Toán tử điểm ảnh\n")
-  fig, axes = plt.subplots(nrows=3, ncols=2, figsize=(10, 10))
+    # 1. Nhập đường dẫn ảnh từ bàn phím và kiểm tra tính hợp lệ
+    path = input("Nhập đường dẫn tới file ảnh của bạn: ").strip()
     
-  axes[0,0].imshow(lightAndContrast(imgRGB, 50))
-  axes[0,0].set_title("Tăng độ sáng")
-  axes[0,0].axis("off")
+    if not os.path.exists(path):
+        print(f" Lỗi: File không tồn tại tại đường dẫn '{path}'")
+        return
 
-  axes[0,1].imshow(lightAndContrast(imgRGB, -50))
-  axes[0,1].set_title("Giảm độ sáng")
-  axes[0,1].axis("off")
+    img_bgr = cv2.imread(path)
+    if img_bgr is None:
+        print(" Lỗi: Không thể đọc định dạng ảnh này. Hãy kiểm tra lại file!")
+        return
 
-  axes[1,0].imshow(lightAndContrast(imgRGB, 0, 1.5))
-  axes[1,0].set_title("Tăng độ tương phản")
-  axes[1,0].axis("off")
+    print(f" Đọc ảnh thành công từ: {path}")
 
-  axes[1,1].imshow(lightAndContrast(imgRGB, 0, 0.95))
-  axes[1,1].set_title("Giảm độ tương phản")
-  axes[1,1].axis("off")
+    # Chuyển đổi không gian màu chuẩn
+    imgRGB = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
+    imgGray = cv2.cvtColor(imgRGB, cv2.COLOR_RGB2GRAY)
 
-  axes[2,0].imshow(imgNegative(imgGray), cmap='gray')
-  axes[2,0].set_title("Ảnh âm bản")
-  axes[2,0].axis("off")
+    # -------------------------------------------------------------
+    #  Thay đổi độ sáng và độ tương phản (có Histogram)
+    # -------------------------------------------------------------
+    print("\n--- PI 1&2 Thử nghiệm Độ sáng & Độ tương phản ---")
+    list_bright_contrast = [
+        imgRGB,
+        lightAndContrast(imgRGB, light=50),
+        lightAndContrast(imgRGB, light=-50),
+        lightAndContrast(imgRGB, contrast=1.5),
+        lightAndContrast(imgRGB, contrast=0.95)
+    ]
+    titles_bright_contrast = [
+        "Ảnh gốc", "Tăng sáng (+50)", "Giảm sáng (-50)",
+        "Tăng tương phản (x1.5)", "Giảm tương phản (x0.95)"
+    ]
+    displayIMG(titles_bright_contrast, list_bright_contrast, 20, 8, histogram=True, nameWindown="PI 1&2 Thử nghiệm Độ sáng & Độ tương phản")
 
-  axes[2,1].imshow(imgBinary(imgGray), cmap='gray')
-  axes[2,1].set_title("Ảnh cắt ngưỡng")
-  axes[2,1].axis("off")
+    # -------------------------------------------------------------
+    #  Ảnh Âm bản (Negative)
+    # -------------------------------------------------------------
+    print("--- PI 3. Thử nghiệm Ảnh Âm bản ---")
+    displayIMG(["Ảnh gốc", "Ảnh âm bản"], [imgRGB, imgNative(imgRGB)], 10, 5, histogram=True, nameWindown="PI 3. Thử nghiệm Ảnh Âm bản")
 
-  plt.show()
+    # -------------------------------------------------------------
+    # Cắt ngưỡng Nhị phân hóa (Binary Thresholding)
+    # -------------------------------------------------------------
+    print("--- PI 4. Thử nghiệm Cắt ngưỡng Nhị phân ---")
+    list_binary = [
+        imgGray,
+        imgBinary(imgGray, threshold=64),
+        imgBinary(imgGray, threshold=128),
+        imgBinary(imgGray, threshold=192)
+    ]
+    titles_binary = ["Ảnh gốc", "Cắt ngưỡng (T=64)", "Cắt ngưỡng (T=128)", "Cắt ngưỡng (T=192)"]
+    displayIMG(titles_binary, list_binary, 16, 4, forceGray=True, nameWindown="PI 4. Thử nghiệm Cắt ngưỡng Nhị phân")
 
-  # thực thi phần 2
-  print("II Lọc tuyến tính\n")
-  fig1, axes1 = plt.subplots(nrows=1, ncols=4, figsize=(10, 10))
+    # -------------------------------------------------------------
+    # Lọc Trung bình (Mean Filter) với các kiểu Border
+    # -------------------------------------------------------------
+    print("--- PII 1. Thử nghiệm Lọc Trung bình & Kiểu biên ---")
+    list_mean = [
+        imgGray,
+        filterMean(imgGray, 9, cv2.BORDER_DEFAULT),
+        filterMean(imgGray, 5, cv2.BORDER_DEFAULT),
+        filterMean(imgGray, 5, cv2.BORDER_CONSTANT),
+        filterMean(imgGray, 5, cv2.BORDER_REPLICATE),
+        filterMean(imgGray, 5, cv2.BORDER_REFLECT)
+    ]
+    titles_mean = [
+        "Ảnh gốc xám", "Lọc tb (k=9)", "Lọc tb (k=5)",
+        "Border Constant", "Border Replicate", "Border Reflect"
+    ]
+    displayIMG(titles_mean, list_mean, 20, 8, forceGray=True, nameWindown="PII 1. Thử nghiệm Lọc Trung bình & Kiểu biên")
 
-  axes1[0].imshow(imgGray, cmap='gray')
-  axes1[0].set_title("Ảnh gốc")
-  axes1[0].axis("off")
+    # -------------------------------------------------------------
+    # Lọc Gaussian với Sigma khác nhau
+    # -------------------------------------------------------------
+    print("--- PII 2. Thử nghiệm Lọc Gaussian ---")
+    list_gaussian = [
+        imgGray,
+        filterGaussian(imgGray, 0, 1.25),
+        filterGaussian(imgGray, 5, 0.25),
+        filterGaussian(imgGray, 5, 0.5),
+        filterGaussian(imgGray, 5, 0.75),
+        filterGaussian(imgGray, 5, 1.25)
+    ]
+    titles_gaussian = [
+        "Ảnh gốc xám", "Gaussian (k=0, sigma=1.25)", "Gaussian (sigma=0.25, k=5)",
+        "Gaussian (sigma=0.5)", "Gaussian (sigma=0.75)", "Gaussian (sigma=1.25)"
+    ]
+    displayIMG(titles_gaussian, list_gaussian, 20, 8, forceGray=True, nameWindown="PII 2. Thử nghiệm Lọc Gaussian")
 
-  axes1[1].imshow(filterMean(imgGray), cmap='gray')
-  axes1[1].set_title("Sau khi lọc trung bình")
-  axes1[1].axis("off")
+    # -------------------------------------------------------------
+    # Làm sắc nét ảnh (Sharpening)
+    # -------------------------------------------------------------
+    print("--- PII 3. Thử nghiệm Làm nét ---")
+    displayIMG(["Ảnh gốc", "Làm nét tiêu chuẩn"], [imgRGB, filterSharpen(imgRGB)], 10, 5)
 
-  axes1[2].imshow(filterGaussian(imgGray), cmap='gray')
-  axes1[2].set_title("Sau khi lọc Gaussian")
-  axes1[2].axis("off")
+    # -------------------------------------------------------------
+    # Phát hiện Biên (Prewitt vs Sobel)
+    # -------------------------------------------------------------
+    print("--- PIII 1. Thử nghiệm Phát hiện biên cạnh ---")
+    list_edges = [
+        imgGray,
+        detectEdges(imgGray, method="prewitt"),
+        detectEdges(imgGray, method="sobel")
+    ]
+    titles_edges = ["Ảnh xám gốc", "Phát hiện biên (Prewitt)", "Phát hiện biên (Sobel)"]
+    displayIMG(titles_edges, list_edges, 15, 5, forceGray=True, nameWindown="PII 3. Thử nghiệm Làm nét")
 
-  axes1[3].imshow(filterSharpen(imgGray), cmap='gray')
-  axes1[3].set_title("Sau khi làm nét")
-  axes1[3].axis("off")
+    # -------------------------------------------------------------
+    # Thiết kế Custom Kernels
+    # -------------------------------------------------------------
+    print("--- PIII 2. Thiết kế ma trận Kernel  ---")
+    designKernelAndFilter(imgGray)
 
-  plt.show()
+    # -------------------------------------------------------------
+    # Đánh giá & So sánh Khử nhiễu
+    # -------------------------------------------------------------
+    print("--- PIII 3&4. Khảo sát So sánh Hiệu quả Khử nhiễu ---")
+    compareFilter(imgGray)      # Nhiễu Muối tiêu
+    compareFilter(imgGray, typeNoise="gaussian")  # Nhiễu Gauss
 
+    print("\n🎉 Hoàn thành toàn bộ quá trình thực thi!")
 
-  # thực thi phần 3
-  print("III Bài tập nâng cao\n")
-  detectionEdge(imgGray)
-  designKernelAndFilter(imgGray)
-  numNoise = imgGray.size //100
-  compareFilter(imgGray, numNoise)
-
-
-main()
+if __name__ == "__main__":
+    main()

@@ -1,10 +1,10 @@
 ﻿# Lab 2: Toán tử điểm ảnh và Các bộ lọc xử lý ảnh (Image Processing)
 
-## Tổng quan
+## **Tổng quan**
 
 Bài tập thực hành tìm hiểu và hiện thực hóa các kỹ thuật cơ bản trong xử lý ảnh số sử dụng thư viện **OpenCV**, **NumPy** và **Matplotlib** tại Python.
 
-## Cấu trúc các hàm chính
+## **Cấu trúc các hàm chính**
 
 ### **Phần I: Toán tử điểm ảnh**
 
@@ -41,15 +41,13 @@ Bài tập thực hành tìm hiểu và hiện thực hóa các kỹ thuật cơ
      - _Lưu ý ràng buộc_: Tổng bậc đạo hàm trong Sobel không được vượt quá kích thước kernel (dx+ dy < ksize), nếu vi phạm OpenCV sẽ báo lỗi do ma trận kernel không đủ không gian tính toán.
 
 2. `designKernelAndFilter(img)`: Thử nghiệm các ma trận kernel tùy chỉnh (làm mờ chuyển động, làm nét mạnh, v.v.).
-
-
-    + **Nguyên lý thiết kế ma trận Kernel (`3x3`) dựa trên trọng số**:
-        - **Trọng số dương (+)**: Giữ lại hoặc khuếch đại cường độ sáng của pixel.
-        - **Trọng số âm (-)**: Trừ đi hoặc triệt tiêu cường độ sáng từ các vùng lân cận để tạo độ tương phản.
-    + **Quy chuẩn tổng trọng số (Kernel Sum Rule)**:
-        - **Làm mịn**: Bản chất là tính trung bình cộng cường độ sáng vùng lân cận để làm mượt gai nhiễu, **tổng tất cả các phần tử trong kernel bằng 1** giúp bảo toàn độ sáng tổng thể của ảnh (không bị cháy sáng hay tối đi).
-        - **Làm nét**: Bản chất là tăng cường độ tương phản cục bộ nhằm làm nổi bật pixel trung tâm; cấu trúc kernel có **tâm dương lớn, các ô xung quanh âm** và **tổng tất cả các phần tử bằng 1** để giữ nguyên nền.
-        - **Phát hiện biên**: Dựa trên sự thay đổi gradient để dò tìm ranh giới và **xóa bỏ hoàn toàn các vùng đồng màu (vùng phẳng)**, cấu trúc kernel được thiết kế sao cho **tổng tất cả các phần tử bằng 0**.
+   - **Nguyên lý thiết kế ma trận Kernel (`3x3`) dựa trên trọng số**:
+     - **Trọng số dương (+)**: Giữ lại hoặc khuếch đại cường độ sáng của pixel.
+     - **Trọng số âm (-)**: Trừ đi hoặc triệt tiêu cường độ sáng từ các vùng lân cận để tạo độ tương phản.
+   - **Quy chuẩn tổng trọng số (Kernel Sum Rule)**:
+     - **Làm mịn**: Bản chất là tính trung bình cộng cường độ sáng vùng lân cận để làm mượt gai nhiễu, **tổng tất cả các phần tử trong kernel bằng 1** giúp bảo toàn độ sáng tổng thể của ảnh (không bị cháy sáng hay tối đi).
+     - **Làm nét**: Bản chất là tăng cường độ tương phản cục bộ nhằm làm nổi bật pixel trung tâm; cấu trúc kernel có **tâm dương lớn, các ô xung quanh âm** và **tổng tất cả các phần tử bằng 1** để giữ nguyên nền.
+     - **Phát hiện biên**: Dựa trên sự thay đổi gradient để dò tìm ranh giới và **xóa bỏ hoàn toàn các vùng đồng màu (vùng phẳng)**, cấu trúc kernel được thiết kế sao cho **tổng tất cả các phần tử bằng 0**.
 
 3. `compareFilter(img, numNoise)`: Thử nghiệm và so sánh hiệu quả xử lý nhiễu muối tiêu (salt-and-pepper noise) giữa các bộ lọc tuyến tính và phi tuyến tính:
 
@@ -70,9 +68,11 @@ Bài tập thực hành tìm hiểu và hiện thực hóa các kỹ thuật cơ
     - Trọng số màu sắc (sigmaColor): đây là mấu chốt của việc bắt cạnh, so sánh màu sắc của pixel lân cận và tâm, nếu màu sắc tương đồng với tâm nó sẽ lấy trọng số lớn để làm mịn, nếu khác với tâm thì trọng số sẽ bị giảm về gần 0 để không trộn lẫn.
   - _Kết quả_: Vừa làm mịn màng vùng bên trong, vừa **giữ gìn và bắt trọn các đường biên (edges) cực kỳ sắc nét**, không bị hiện tượng nhòe cạnh.
 
-## Chạy chương trình
+## **Chạy chương trình**
 
 1. Cài đặt các thư viện phụ thuộc:
    ```bash
    pip install opencv-python numpy matplotlib
    ```
+   set PYTHONIOENCODING=utf-8
+   python "c:\Users\TAN LOC\Desktop\CV_Lab-1-5-\Lab2\lab2.py"
