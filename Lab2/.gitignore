@@ -1,0 +1,14 @@
+# --- Python Cache ---
+__pycache__/
+*.py[cod]
+*$py.class
+
+# --- Jupyter Notebook Checkpoints ---
+.ipynb_checkpoints/
+*/.ipynb_checkpoints/*
+
+# --- IDE & Hệ điều hành (VS Code, Mac, Windows) ---
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
