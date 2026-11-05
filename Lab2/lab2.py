@@ -7,60 +7,83 @@ import matplotlib.pyplot as plt
 # 1. HÀM HIỂN THỊ VÀ TRỰC QUAN HÓA (DISPLAY)
 # ==========================================
 
-def displayIMG(titles_list, images_list, w, h, histogram=False, forceGray=False, nameWindown=""):
+def displayIMG(titles_list, images_list, w = 10, h = 6, histogram = False, forceGray = False, nameWindown = ""):
     """
-    Hàm hiển thị danh sách nhiều ảnh cạnh nhau một cách linh hoạt, kèm theo Histogram tùy chọn.
+    Hàm hiển thị danh sách nhiều ảnh cạnh nhau một cách linh hoạt.
     
     Args:
-        titles_list (list): Danh sách tiêu đề cho từng ảnh.
-        images_list (list): Danh sách các mảng numpy chứa dữ liệu ảnh.
-        w (int): Chiều rộng khung hình matplotlib.
-        h (int): Chiều cao khung hình matplotlib.
-        histogram (bool): True để hiển thị thêm hàng đồ thị Histogram bên dưới.
-        forceGray (bool): True để ép kiểu hiển thị ảnh xám (dùng cmap='gray').
-        window_title (str): Tiêu đề hiển thị trên thanh tiêu đề của cửa sổ Matplotlib..
+        titles (list): Danh sách tiêu đề cho từng ảnh.
+        images (list): Danh sách các mảng numpy chứa dữ liệu ảnh.
+        w (int): Chiều rộng khung hình chung.
+        h (int): Chiều cao khung hình chung.
+        histogram (bool): Hiển thị thêm histogram (nếu cần).
+        force_gray (bool): Buộc hiển thị tất cả dưới dạng ảnh xám (nếu cần thiết).
     """
     colum = len(images_list)
+    # Chặn và cảnh báo 2 trường hợp đầu vào rỗng và số lượng ảnh và title không khớp nhau 
+    if colum == 0:
+        print("Không có hình ảnh đầu vào!")
+        return
+    elif len(titles_list) != colum:
+        print("Số lượng title và ảnh không khớp nhau!")
+        return
+    
     row = 2 if histogram else 1
     fig, axes = plt.subplots(row, colum, figsize=(w, h), squeeze=False)
-
     # --- ĐẶT TIÊU ĐỀ CHO CỬA SỔ HIỂN THỊ (WINDOW TITLE) ---
     try:
         fig.canvas.manager.set_window_title(nameWindown)
     except AttributeError:
         pass # Phòng hờ trường hợp môi trường chạy không hỗ trợ window manager (như một số notebook online)
-    
-    colors = ('r', 'g', 'b')  # Chuẩn màu RGB cho matplotlib
+        
+    colors = ('r', 'g', 'b') # Định nghĩa màu vẽ histogram theo chuẩn ảnh RGB của plt
 
     for i in range(colum):
+        current_img = images_list[i]
+        # Xử lý None trong list
+        if current_img is None:
+            # Xử lý khi gặp None: Hiển thị khung trống kèm thông báo lỗi
+            axes[0, i].text(0.5, 0.5, "Lỗi: đọc lại vui lòng đọc lại [Cảnh báo]", 
+                            color='red', fontsize=10, ha='center', va='center', 
+                            transform=axes[0, i].transAxes)
+            axes[0, i].set_title(titles_list[i], fontsize=12, fontweight='bold')
+            axes[0, i].axis("off")
+            
+            # Nếu có hàng histogram ở dưới, cũng tắt luôn để tránh lỗi vẽ
+            if histogram:
+                axes[1, i].text(0.5, 0.5, "N/A", color='gray', fontsize=10, ha='center', va='center', transform=axes[1, i].transAxes)
+                axes[1, i].axis("off")
+            continue # Chuyển sang cột tiếp theo
         # --- HÀNG 1: HIỂN THỊ ẢNH ---
         if forceGray:
-            axes[0, i].imshow(images_list[i], cmap="gray")
+            # hiển thị ảnh xám
+            axes[0, i].imshow(current_img, cmap="gray")
         else:
-            axes[0, i].imshow(images_list[i])
-        axes[0, i].set_title(titles_list[i], fontsize=10, fontweight='bold')
+            # hiển thị ảnh màu 3 kênh RGB tự động hiển thị chuẩn
+            axes[0, i].imshow(current_img)
+        axes[0, i].set_title(titles_list[i], fontsize=12, fontweight='bold')
         axes[0, i].axis("off")
 
-        # --- HÀNG 2: HIỂN THỊ HISTOGRAM (NẾU ĐƯỢC BẬT) ---
         if histogram:
-            current_img = images_list[i]
-            if forceGray or len(current_img.shape) == 2:
-                # Tính histogram cho ảnh xám 1 kênh
+            # --- HÀNG 2: HIỂN THỊ HISTOGRAM TƯƠNG ỨNG ---
+            # Tách các kênh màu của ảnh hiện tại để vẽ histogram
+            if forceGray:
                 hist = cv2.calcHist([current_img], [0], None, [256], [0, 256])
                 axes[1, i].plot(hist, color="gray", alpha=0.8)
             else:
-                # Tính histogram cho từng kênh màu R, G, B
                 for c, col in enumerate(colors):
+                    # Tính toán histogram cho từng kênh màu R, G, B
                     hist = cv2.calcHist([current_img], [c], None, [256], [0, 256])
                     axes[1, i].plot(hist, color=col, alpha=0.8)
                 
             axes[1, i].set_xlim([0, 256])
             axes[1, i].grid(True, linestyle='--', alpha=0.5)
             
+            # Gắn nhãn cho trục của cột đầu tiên cho gọn đồ thị
             if i == 0:
                 axes[1, i].set_ylabel("Tần suất (Số lượng)")
             axes[1, i].set_xlabel("Giá trị Pixel")
-            axes[1, i].set_title(f"Hist: {titles_list[i]}", fontsize=9)
+            axes[1, i].set_title(f"Histogram {titles_list[i]}", fontsize=10)
 
     plt.tight_layout()
     plt.show()
@@ -119,6 +142,12 @@ def imgBinary(img, threshold=128):
       Returns:
           np.ndarray: Ảnh nhị phân kết quả, chỉ chứa đúng 2 giá trị 0 (Đen) và 255 (Trắng).
     """
+    if len(img.shape) != 2:
+        print("[Cảnh báo] Đầu vào ảnh nên là kênh màu Grayscale vì kênh màu khác có thể làm biến đổi màu sắc và không phù hợp với mục đích ảnh nhị phân!")
+        return None
+    elif threshold <= 0 or threshold >= 255:
+        print("Giá trị cắt ngưỡng cần nằm trong [0,255] để được ảnh nhị phân")
+        
     img_binary = img.copy()
     img_binary[img_binary < threshold] = 0
     img_binary[img_binary >= threshold] = 255
@@ -140,6 +169,13 @@ def filterMean(img, k, border=cv2.BORDER_DEFAULT):
         Returns:
             np.ndarray: Ảnh sau khi được làm mờ qua bộ lọc trung bình kích thước k.
     """
+     #Kiểm tra k <=0 vì kích thước 1 kernel không <=0
+    if k <= 0:
+        print("[Cảnh báo] kích thước cần > 0!")
+        return None 
+    # Tránh hiện tượng dịch chuyển không gian với k chẵn
+    elif k%2 == 0:
+        print("Kích thước kernel k phải là số nguyên dương lớn hơn 0.")
     return cv2.blur(img, (k, k), borderType=border)
 
 
@@ -155,6 +191,11 @@ def filterGaussian(img, k, sigma, border=cv2.BORDER_DEFAULT):
         Returns:
             np.ndarray: Ảnh sau khi qua bộ lọc Gaussian.
     """
+    if k != 0:
+        if k%2==0:
+            print("[Cảnh báo] Kích thước kernel cần lẻ và lớn hơn 0!")
+            return None
+       
     return cv2.GaussianBlur(img, (k, k), sigma, borderType=border)
 
 
@@ -172,24 +213,34 @@ def filterSharpen(img, kernel=None):
     """
     if kernel is None:
         kernel = np.array([
-            [ 0, -1,  0],
-            [-1,  5, -1],
-            [ 0, -1,  0]
-        ], dtype=np.float32)
+            [0,-1,0],
+            [-1,5,-1],
+            [0,-1,0]
+        ], dtype = np.float32)
+    else:
 
-    if not isinstance(kernel, np.ndarray):
-        raise TypeError("Kernel phải là một đối tượng numpy.ndarray!")
-    if kernel.ndim != 2:
-        raise ValueError(f"Kernel phải có 2 chiều, hiện tại là {kernel.ndim} chiều.")
+        # KIỂM TRA TÍNH HỢP LỆ (INPUT VALIDATION)
+        # Kiểm tra xem kernel có phải là mảng NumPy không
+        if not isinstance(kernel, np.ndarray):
+            print("[Cảnh báo] Kernel phải là một đối tượng numpy.ndarray!")
+            return None
 
-    rows, cols = kernel.shape
-    if rows % 2 == 0 or cols % 2 == 0:
-        raise ValueError(f"Kích thước kernel phải là số lẻ, hiện tại là {rows}x{cols}.")
+        # Kiểm tra số chiều (phải là ma trận 2D)
+        if kernel.ndim != 2:
+            print(f"[Cảnh báo] Kernel phải có 2 chiều (ndim=2), hiện tại là {kernel.ndim} chiều.")
+            return None
 
-    kernel_sum = np.sum(kernel)
-    if not np.isclose(kernel_sum, 1.0, atol=1e-5):
-        print(f"⚠️ Cảnh báo: Tổng kernel = {kernel_sum:.2f} (Khuyên dùng sum = 1.0 để giữ nguyên độ sáng).")
+        # Kiểm tra kích thước hàng và cột có phải là số lẻ không
+        rows, cols = kernel.shape
+        if rows % 2 == 0 or cols % 2 == 0:
+            print(f"[Cảnh báo] Kích thước kernel phải là số lẻ (ví dụ 3x3, 5x5), hiện tại là {rows}x{cols}.")
+            return None
 
+        # Kiểm tra tổng các phần tử (Khuyến nghị tổng bằng 1.0 để bảo toàn độ sáng tổng thể của ảnh)
+        kernel_sum = np.sum(kernel)
+        if not np.isclose(kernel_sum, 1.0, atol=1e-5):
+            print(f"[Cảnh báo] Tổng các phần tử của kernel hiện tại bằng {kernel_sum:.2f} (Khuyến nghị bằng 1.0 để giữ nguyên độ sáng ảnh).")
+            return None
     return cv2.filter2D(img, -1, kernel)
 
 
@@ -205,10 +256,24 @@ def detectEdges(imgGray, method="sobel", ksize=3):
     Returns:
         np.ndarray: Ảnh biên tổng hợp sau khi xử lý.
     """
-    if method.lower() == "sobel":
+    if imgGray.ndim != 2:
+        print("[Cảnh báo] Đầu vào imgGray phải là ảnh xám 2D (Grayscale)!")
+        return None
+        
+    method_lower = method.lower()
+    if method_lower not in ["sobel", "prewitt"]:
+        print(f"[Cảnh báo] Phương pháp '{method}' không hợp lệ! Chỉ hỗ trợ 'sobel' hoặc 'prewitt'.")
+        return None
+        
+    # Kiểm tra ksize chung phải là số lẻ (hoặc -1 riêng cho Scharr)
+    if ksize != -1 and (ksize <= 0 or ksize % 2 == 0):
+        print(f"[Cảnh báo] Kích thước ksize = {ksize} không hợp lệ! Bắt buộc phải là số lẻ dương hoặc -1.")
+        return None
+    
+    if method_lower == "sobel":
         grad_x = cv2.Sobel(imgGray, cv2.CV_64F, 1, 0, ksize=ksize)
         grad_y = cv2.Sobel(imgGray, cv2.CV_64F, 0, 1, ksize=ksize)
-    elif method.lower() == "prewitt":
+    elif method_lower == "prewitt":
         kernel_x = np.array([[-1, 0, 1], [-1, 0, 1], [-1, 0, 1]], dtype=np.float32)
         kernel_y = np.array([[-1, -1, -1], [0, 0, 0], [1, 1, 1]], dtype=np.float32)
         grad_x = cv2.filter2D(imgGray, cv2.CV_64F, kernel_x)
