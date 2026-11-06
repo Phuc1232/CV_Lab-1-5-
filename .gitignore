@@ -1,7 +1,24 @@
+# Môi trường ảo
+.venv/
+
+# Python cache
 __pycache__/
 *.py[cod]
-*$py.class
+
+# Jupyter checkpoints
+.ipynb_checkpoints/
+
+# IDE & hệ điều hành
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Cache mô hình / test
 .pytest_cache/
+
+# Giữ lại từ .gitignore cũ của nhóm
+*$py.class
 lab4_*
 Chapter3_*
 encode.py

@@ -36,7 +36,7 @@ if sys.platform == "win32":
         pass
 
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
-DEFAULT_DB_DIR = os.path.join(CURRENT_DIR, "known_faces")
+DEFAULT_DB_DIR = os.path.join(CURRENT_DIR, "du_lieu", "known_faces")
 
 
 class FaceRecognitionSystem:
