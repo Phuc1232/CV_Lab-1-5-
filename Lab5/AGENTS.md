@@ -2,6 +2,10 @@
 
 Tài liệu quy định cấu trúc điều phối, vai trò trách nhiệm, mô hình ngôn ngữ và quy trình kiểm soát chất lượng của hệ sinh thái **Multi-Agent** áp dụng trong dự án.
 
+[README](README.md) hướng dẫn chạy Lab 5. [llms.txt](llms.txt) lập mục lục mã nguồn và tài liệu. [Hướng dẫn vibe coding](docs/vibe-coding.md) có mẫu đặc tả yêu cầu.
+
+[Quy ước kỹ thuật](rules/README.md) mô tả ranh giới các mô-đun và hành vi cần giữ khi sửa Lab 5.
+
 ---
 
 ## 1. Danh sách Sub-Agents & Cấu hình Mô hình (Model Roles)

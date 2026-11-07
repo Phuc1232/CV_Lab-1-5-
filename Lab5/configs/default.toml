@@ -1,0 +1,6 @@
+[recognition]
+camera = 0
+threshold = 0.7
+frame_skip = 2
+# db_dir = "../known_faces"
+# device = "cpu"

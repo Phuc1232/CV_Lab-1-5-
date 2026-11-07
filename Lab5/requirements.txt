@@ -1,0 +1,8 @@
+facenet-pytorch==2.6.0
+torch>=2.2.0,<2.3.0
+torchvision>=0.17.0,<0.18.0
+numpy>=1.24,<2
+Pillow>=10.2,<10.3
+opencv-python>=4.8,<4.12
+pytest>=8,<9
+tomli>=2,<3; python_version < '3.11'

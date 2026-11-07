@@ -1,0 +1,29 @@
+# Lab 5 · Nhận diện khuôn mặt theo thời gian thực
+
+> Bài thực hành Python dùng OpenCV, MTCNN, FaceNet và cosine similarity để nhận diện khuôn mặt từ webcam.
+
+## Bắt đầu
+
+- [README.md](README.md) — Cài đặt, đăng ký ảnh mẫu, chạy webcam và kiểm thử.
+- [AGENTS.md](AGENTS.md) — Quy tắc phối hợp, kiểm thử và quản lý thay đổi.
+
+## Mã nguồn và dữ liệu
+
+- [CLI](src/facelab/cli.py) — Lệnh nhận diện, đăng ký và vòng lặp webcam. Các lệnh cũ là [Lab5.py](Lab5.py) và [register_face.py](register_face.py).
+- [Nhận diện](src/facelab/core/recognition.py) — Phát hiện, trích xuất embedding và đối sánh.
+- [Webcam](src/facelab/backends.py) — Chọn backend và mở camera.
+- [Hiển thị](src/facelab/imaging/overlay.py) — Hộp bao, nhãn và HUD.
+- [Đăng ký](src/facelab/datasets/registration.py) — Lưu khuôn mặt từ ảnh hoặc webcam.
+- [Cấu hình mẫu](configs/default.toml) — Giá trị nhận diện có thể nạp bằng `--config`.
+- [Kiểm thử](tests/test_lab5.py) — Kiểm thử bằng pytest.
+- [requirements.txt](requirements.txt) — Phụ thuộc Python.
+- [known_faces/](known_faces/) — Ảnh đăng ký mặc định.
+
+## Tài liệu
+
+- [Mục lục](docs/README.md) — Tài liệu tham khảo cho Lab 5.
+- [Kiến trúc](docs/architecture.md) — Luồng xử lý, công thức và xử lý sự cố.
+- [Cheatsheet](docs/cheatsheet.md) — Tra cứu tham số và mã minh họa.
+- [Vibe coding](docs/vibe-coding.md) — Mẫu đặc tả và tiêu chí chấp nhận.
+- [Quy ước kỹ thuật](rules/README.md) — Phạm vi và hành vi cần giữ khi sửa.
+- [Kết quả thủ công](results/README.md) — Mẫu ghi kết quả quan sát từ webcam.

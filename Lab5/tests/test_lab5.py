@@ -14,18 +14,21 @@ Kiểm thử toàn diện các thành phần của hệ thống nhận diện kh
 =============================================================================
 """
 
-import os
+from pathlib import Path
 import sys
 import pytest
 import numpy as np
 import torch
 import torch.nn.functional as F
 
-CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+CURRENT_DIR = str(Path(__file__).resolve().parents[1])
 if CURRENT_DIR not in sys.path:
     sys.path.insert(0, CURRENT_DIR)
 
-from Lab5 import FaceRecognitionSystem, open_webcam
+from src.facelab.backends import open_webcam
+from src.facelab import cli
+from src.facelab.core.recognition import FaceRecognitionSystem
+from src.facelab.paths import DEFAULT_DB_DIR
 
 
 @pytest.fixture(scope="module")
@@ -34,7 +37,7 @@ def face_system():
     Fixture khởi tạo đối tượng FaceRecognitionSystem trên CPU để kiểm thử.
     """
     system = FaceRecognitionSystem(
-        db_dir=os.path.join(CURRENT_DIR, "known_faces"),
+        db_dir=DEFAULT_DB_DIR,
         similarity_threshold=0.7,
         device="cpu",
     )
@@ -164,3 +167,34 @@ def test_open_webcam_backend_anti_green_screen():
             is_solid_green = (std_val < 3.0 and g_mean > 100.0 and b_mean < 15.0 and r_mean < 15.0)
             assert not is_solid_green, "Lỗi: Khung hình webcam bị hiện tượng màn hình xanh lá cây (solid green)!"
 
+
+def test_recognition_config_and_cli_overrides(tmp_path, monkeypatch):
+    config_path = tmp_path / "recognition.toml"
+    config_path.write_text(
+        '[recognition]\ncamera = 3\nthreshold = 0.8\nframe_skip = 5\n'
+        'db_dir = "faces"\ndevice = "cpu"\n',
+        encoding="utf-8",
+    )
+    received = {}
+    monkeypatch.setattr(cli, "run_webcam", lambda **settings: received.update(settings))
+
+    cli.main(["--config", str(config_path), "--camera", "0", "--threshold", "0"])
+
+    assert received == {
+        "camera_id": 0,
+        "similarity_threshold": 0.0,
+        "frame_skip": 5,
+        "db_dir": str(tmp_path / "faces"),
+        "device": "cpu",
+    }
+
+
+def test_recognition_config_rejects_invalid_values(tmp_path, capsys):
+    config_path = tmp_path / "invalid.toml"
+    config_path.write_text("[recognition]\nframe_skip = true\n", encoding="utf-8")
+
+    with pytest.raises(SystemExit) as error:
+        cli.main(["--config", str(config_path)])
+
+    assert error.value.code == 2
+    assert "--config" in capsys.readouterr().err

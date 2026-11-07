@@ -1,6 +1,8 @@
 # CHEATSHEET TOÀN TẬP: HỆ THỐNG NHẬN DIỆN KHUÔN MẶT FACENET & MTCNN (LAB 5)
 
-Tài liệu tra cứu nhanh (Cheatsheet) giải thích chi tiết **từng cụm chức năng**, **từng đoạn code**, **toàn bộ thông số kỹ thuật (hyperparameters)** và **cơ chế toán học** của hệ thống nhận diện khuôn mặt thời gian thực trong `Lab5.py`.
+Tài liệu này giải thích các chức năng, thông số và phép tính của hệ thống nhận diện khuôn mặt thời gian thực. Xem [bản đồ mã nguồn](README.md#bản-đồ-mã-nguồn) để tìm phần triển khai từng chức năng.
+
+Xem [README](../README.md) để cài đặt và [kết quả](../results/README.md) để xem các số liệu thực nghiệm từng ghi nhận.
 
 ---
 
@@ -28,18 +30,18 @@ Tài liệu tra cứu nhanh (Cheatsheet) giải thích chi tiết **từng cụm
 |---|:---:|:---:|---|
 | **`image_size`** | `160` | MTCNN | Kích thước ảnh khuôn mặt đầu ra ($160 \times 160$ px). Đúng bằng kích thước tensor đầu vào yêu cầu của mạng Inception-ResNet-v1. |
 | **`margin`** | `20` | MTCNN | Mở rộng biên bao quanh khuôn mặt thêm 20px mỗi chiều, giữ trọn vẹn cằm, trán và mang tai giúp trích xuất đặc trưng chính xác hơn. |
-| **`min_face_size`** | `20` | MTCNN | Kích thước khuôn mặt nhỏ nhất có thể phát hiện (px). Hạ từ mặc định 40 xuống 20 để không bị mất nhận diện khi người dùng ngồi xa webcam. |
-| **`thresholds`** | `[0.6, 0.7, 0.7]` | MTCNN | Ngưỡng tin cậy của 3 mạng tích chập con: P-Net ($0.6$), R-Net ($0.7$), O-Net ($0.7$). Giúp lọc bỏ 99% các vùng nhiễu không phải mặt người. |
+| **`min_face_size`** | `20` | MTCNN | Kích thước khuôn mặt tối thiểu mà bộ phát hiện tìm kiếm, tính bằng pixel. |
+| **`thresholds`** | `[0.6, 0.7, 0.7]` | MTCNN | Ngưỡng tin cậy lần lượt cho P-Net, R-Net và O-Net. |
 | **`factor`** | `0.709` | MTCNN | Tỷ lệ co giãn giữa các tầng trong tháp ảnh (Image Pyramid) để quét khuôn mặt ở các khoảng cách khác nhau ($1/\sqrt{2} \approx 0.707$). |
 | **`post_process`** | `True` | MTCNN | Tự động chuẩn hóa dải pixel từ $[0, 255]$ về $[-1.0, 1.0]$ theo công thức $(x - 127.5) / 128.0$. |
 | **`keep_all`** | `True` | MTCNN | Bắt buộc giữ lại **toàn bộ** khuôn mặt phát hiện được trong khung hình thay vì chỉ lấy 1 khuôn mặt có diện tích lớn nhất. |
-| **`pretrained`** | `'vggface2'` | FaceNet | Trọng số mạng Inception-ResNet-v1 huấn luyện trên tập VGGFace2 (hơn 3.3 triệu ảnh, 9.131 danh tính), nhận diện người châu Á rất tốt. |
+| **`pretrained`** | `'vggface2'` | FaceNet | Trọng số có sẵn của mạng Inception-ResNet-v1, huấn luyện trên VGGFace2. |
 | **`dim`** | `512` | FaceNet | Kích thước vector đặc trưng khuôn mặt (Embedding $\in \mathbb{R}^{512}$). |
 | **`similarity_threshold`** | `0.7` | Matching | Ngưỡng so khớp Cosine Similarity theo đề bài: $> 0.7 \rightarrow$ **Matched**, $\le 0.7 \rightarrow$ **Unknown**. |
-| **`prob` threshold** | `0.6` | Frame Pipeline | Lọc bỏ những bounding box có độ tin cậy MTCNN $< 60\%$ trước khi chuyển sang FaceNet để tránh tính toán lãng phí. |
-| **`CAP_DSHOW`** | Backend flag | OpenCV | Cờ DirectShow trên Windows. Khắc phục triệt để lỗi màn hình toàn màu xanh lá cây `[0, 135, 0]` do MSMF gây ra. |
-| **`FRAME_WIDTH` / `HEIGHT`**| `640 x 480` | OpenCV | Độ phân giải khung hình tối ưu cân bằng giữa chất lượng nhận diện và tốc độ xử lý real-time trên CPU. |
-| **`frame_skip`** | `2` | Main Loop | Khoảng cách khung hình chạy suy luận AI: cứ 2 khung hình thì chạy MTCNN+FaceNet 1 lần; khung ở giữa tái sử dụng vị trí box để giữ mượt 30 FPS. |
+| **`prob` threshold** | `0.6` | Frame Pipeline | Sau khi tính embedding, bỏ qua hộp bao có độ tin cậy MTCNN dưới 0.6 trước khi đối sánh và vẽ kết quả. |
+| **`CAP_DSHOW`** | Backend flag | OpenCV | Cờ DirectShow. Ứng dụng thử backend này đầu tiên trên Windows. |
+| **`CAP_PROP_FRAME_WIDTH` / `CAP_PROP_FRAME_HEIGHT`** | `640 × 480` | OpenCV | Độ phân giải yêu cầu. Ứng dụng đọc lại và in kích thước thực tế mà webcam cung cấp. |
+| **`frame_skip`** | `2` | Main Loop | Cứ hai khung hình thì chạy MTCNN và FaceNet một lần. Khung ở giữa dùng lại các hộp bao gần nhất. |
 
 ---
 
@@ -48,7 +50,7 @@ Tài liệu tra cứu nhanh (Cheatsheet) giải thích chi tiết **từng cụm
 ```
   [ Webcam Capture (OpenCV) ]
                │
-               ▼ (Định dạng ảnh BGR: 640x480)
+               ▼ (Khung hình BGR ở kích thước webcam cung cấp)
   [ Đổi không gian màu: cv2.cvtColor(BGR -> RGB) ]
                │
                ▼ (Chuyển sang PIL.Image)
@@ -60,7 +62,7 @@ Tài liệu tra cứu nhanh (Cheatsheet) giải thích chi tiết **từng cụm
   └────────────────────────────┬───────────────────────────┘
                                │
                                ▼ mtcnn.extract(boxes)
-  [ Cắt & Căn chỉnh khuôn mặt: Tensor 4D (N, 3, 160, 160) ]
+  [ Cắt theo hộp bao và đổi kích thước: Tensor 4D (N, 3, 160, 160) ]
                                │
                                ▼ Chuẩn hóa [-1, 1]
   ┌────────────────────────────────────────────────────────┐
@@ -70,7 +72,7 @@ Tài liệu tra cứu nhanh (Cheatsheet) giải thích chi tiết **từng cụm
   │  └── Chuẩn hóa L2-norm: F.normalize(e, p=2, dim=1)    │
   └────────────────────────────┬───────────────────────────┘
                                │
-                               ▼
+                               ▼ Bỏ qua hộp bao nếu prob < 0.6
   ┌────────────────────────────────────────────────────────┐
   │             ĐỐI SÁNH COSINE SIMILARITY                 │
   │  └── Tích vô hướng: sim(u, v) = u · v = ∑(u_k * v_k)   │
@@ -125,7 +127,6 @@ self.facenet = InceptionResnetV1(pretrained="vggface2").eval().to(self.device)
 - **`.eval()`**: Chuyển mạng Inception-ResNet sang chế độ suy luận:
   - Khóa toàn bộ các lớp `Dropout` (không ngắt kết nối nơ-ron ngẫu nhiên).
   - Cố định trọng số trung bình và phương sai của `BatchNorm2d`.
-  - Giúp vector đặc trưng 512D luôn ổn định và tiết kiệm 30% tài nguyên tính toán.
 
 ---
 
@@ -140,7 +141,7 @@ def load_database(self) -> int:
         embedding = F.normalize(embedding, p=2, dim=1)
     self.database[person_name].append(embedding.cpu())
 ```
-- **`torch.no_grad()`**: Vô hiệu hóa bộ nhớ đồ thị tính gradient (Autograd Engine) của PyTorch, giảm 50% lượng RAM sử dụng và tăng tốc độ trích xuất đặc trưng.
+- **`torch.no_grad()`** tắt việc ghi đồ thị tính gradient trong quá trình suy luận.
 - **`embedding.cpu()`**: Chuyển vector từ GPU (nếu dùng CUDA) về CPU RAM để giải phóng VRAM của card đồ họa.
 - **Quy tắc đặt tên file**: `NguyenVanA.jpg` hoặc `NguyenVanA_1.jpg` đều được hệ thống tự động bóc tách thành tên định danh `"NguyenVanA"`. Hỗ trợ một người có thể đăng ký nhiều góc mặt khác nhau để tăng độ chính xác.
 
@@ -177,7 +178,7 @@ def compute_similarity(self, embedding: torch.Tensor) -> Tuple[str, str, float]:
     $$\|\mathbf{u}\|_2 = \sqrt{\sum_{k=1}^{512} u_k^2} = 1.0 \quad \text{và} \quad \|\mathbf{v}\|_2 = 1.0$$
   - Vì mẫu số bằng $1 \times 1 = 1$, phép tính rút gọn thành:
     $$\cos(\theta) = \mathbf{u} \cdot \mathbf{v} = \sum_{k=1}^{512} u_k v_k$$
-  - Lệnh `torch.sum(embedding * known_emb).item()` nhân song song 512 phần tử cực nhanh chỉ mất $\approx 0.001$ mili-giây.
+  - Lệnh `torch.sum(embedding * known_emb).item()` tính tích theo từng phần tử rồi cộng các kết quả.
 
 - **Cổng phân loại theo ngưỡng (Gating Decision)**:
   ```python
@@ -202,13 +203,13 @@ def process_frame(self, frame_bgr: np.ndarray, draw_landmarks: bool = False):
         embeddings = self.facenet(face_tensors)
         embeddings = F.normalize(embeddings, p=2, dim=1)
 ```
-- **Đồng bộ Bounding Box & Cắt ảnh**: Sử dụng trực tiếp `self.mtcnn.extract(img_pil, boxes)` để cắt ảnh theo đúng danh sách `boxes` vừa phát hiện. Tuyệt đối không gọi lại `self.mtcnn(img_pil)` vì việc gọi lại sẽ chạy lại bộ phát hiện lần hai với các ngưỡng ngẫu nhiên khác nhau, làm lệch thứ tự giữa tọa độ khung viền và vector embedding.
+- **Cắt ảnh theo hộp bao** — `self.mtcnn.extract(img_pil, boxes)` dùng ngay các hộp vừa phát hiện. Thứ tự hộp bao khớp với thứ tự embedding. Các điểm mốc phục vụ hiển thị.
 
 ---
 
 ### Cụm 7: Giao diện đồ họa Bo góc & HUD bán trong suốt
 
-#### a. Bo góc hiện đại `_draw_stylish_box()`
+#### a. Hộp bao và nhãn trong `draw_stylish_box()`
 - Thay vì vẽ một hình chữ nhật thô sơ bằng `cv2.rectangle`, hàm vẽ thêm 4 đường nhấn dày hơn tại 4 góc khuôn mặt (`corner_len`), tạo cảm giác giao diện thị giác máy tính chuyên nghiệp.
 - Nhãn tên người được vẽ trên một thanh banner chữ nhật cùng màu (Xanh hoặc Đỏ) phía trên đầu hộp bao, chữ tương phản (chữ đen trên nền xanh, chữ trắng trên nền đỏ) giúp người dùng đọc rõ ràng kể cả khi hậu cảnh có màu phức tạp.
 
@@ -243,7 +244,7 @@ def open_webcam(camera_id: int = 0) -> cv2.VideoCapture:
       cap.release()
       continue
   ```
-  Hàm tính toán độ lệch chuẩn $\sigma$ (`std_val`). Nếu ảnh là một màu đồng nhất ($\sigma < 3.0$) và kênh Green áp đảo ($G > 100, B, R < 15$), hàm tự động ngắt kết nối và chuyển sang backend **DirectShow (`CAP_DSHOW`)**, đảm bảo webcam mở lên luôn có màu sắc trung thực.
+  Khi điều kiện trên đúng, hàm giải phóng camera và thử backend kế tiếp. Xem [giới hạn của phép kiểm tra](architecture.md#xử-lý-sự-cố-webcam-trên-windows).
 
 ---
 
@@ -262,9 +263,8 @@ else:
 - **Kỹ thuật Temporal Bounding Box Persistence**:
   - Tần suất xuất hiện khuôn mặt trong camera thường biến thiên liên tục nhưng không nhảy vọt trong khoảng $1/30$ giây.
   - Khi bật `skip_enabled=True` (`frame_skip=2`):
-    - **Frame chẵn (0, 2, 4...)**: Chạy toàn bộ mạng nơ-ron MTCNN + FaceNet (tốn $\approx 45$ ms CPU), ghi nhớ vị trí và danh tính vào biến `last_detections`.
-    - **Frame lẻ (1, 3, 5...)**: Bỏ qua mạng nơ-ron, lấy ngay `last_detections` của frame trước vẽ đè lên hình ảnh mới (chỉ tốn $\approx 1$ ms CPU).
-  - **Kết quả**: Tăng gấp đôi tốc độ khung hình từ **12 FPS lên 28–30 FPS**, video không bị giật lag và quạt tản nhiệt CPU không bị rú tải.
+    - **Khung chẵn (0, 2, 4...)** chạy MTCNN và FaceNet, rồi lưu vị trí và danh tính vào `last_detections`.
+    - **Khung lẻ (1, 3, 5...)** dùng lại `last_detections` để vẽ kết quả lên hình ảnh mới.
 
 ---
 
@@ -275,7 +275,7 @@ else:
 |---|:---:|:---:|---|
 | **Matched** | $> 0.70$ | `(0, 255, 0)` | Khung viền **Xanh lá cây**, banner hiển thị tên và độ tương đồng |
 | **Unknown** | $\le 0.70$ | `(0, 0, 255)` | Khung viền **Đỏ**, banner hiển thị `"Unknown (<sim>)"` |
-| **Landmarks** | Điểm mốc 5 điểm | `(255, 255, 0)` | Chấm tròn màu **Cyan/Vàng nhạt** tại mắt, mũi và khóe miệng |
+| **Landmarks** | Điểm mốc 5 điểm | `(255, 255, 0)` | Chấm tròn màu **cyan** tại mắt, mũi và khóe miệng |
 
 ### Bảng phím tắt tương tác trực tiếp
 | Phím | Tên thao tác | Chi tiết hành vi |
@@ -283,7 +283,7 @@ else:
 | **`S`** hoặc **`C`** | **Đăng ký nhanh** | Dừng hình, yêu cầu nhập tên trên console, cắt khuôn mặt từ webcam và nạp tức thì vào database. |
 | **`R`** | **Nạp lại Database** | Quét lại thư mục `known_faces/`, cập nhật nếu bạn vừa copy thêm ảnh mới từ ngoài vào. |
 | **`L`** | **Bật/Tắt Landmarks** | Bật hoặc ẩn 5 điểm mốc đặc trưng trên khuôn mặt. |
-| **`F`** | **Tối ưu hóa FPS** | Chuyển đổi giữa chế độ chạy liên tục mỗi frame (chính xác tuyệt đối) và bỏ qua frame (mượt mà 30 FPS). |
+| **`F`** | **Bỏ qua khung hình** | Chuyển giữa suy luận trên mọi khung hình và suy luận theo khoảng `frame_skip`. |
 | **`Q`** hoặc **`ESC`**| **Thoát an toàn** | Giải phóng camera phần cứng, đóng tất cả cửa sổ GUI và kết thúc tiến trình sạch sẽ. |
 
 ---
@@ -292,18 +292,15 @@ else:
 
 1. **Camera bị màn hình màu xanh lá cây đồng nhất:**
    - *Hiện tượng*: Màn hình hiển thị màu xanh đặc `[0, 135, 0]`, không thấy người.
-   - *Khắc phục*: Hệ thống đã tự động xử lý qua hàm `open_webcam()`. Nếu chạy code ngoài, luôn truyền cờ `cv2.CAP_DSHOW` khi khởi tạo: `cv2.VideoCapture(0, cv2.CAP_DSHOW)`.
+   - Xem [xử lý sự cố webcam trên Windows](architecture.md#xử-lý-sự-cố-webcam-trên-windows).
 
 2. **Người ngồi xa webcam nhưng MTCNN không nhận ra:**
    - *Hiện tượng*: Ngồi lùi ra sau khoảng 1.5m thì mất khung bao.
-   - *Khắc phục*: Đảm bảo tham số `min_face_size=20` (không dùng mặc định 40).
+   - Kiểm tra khoảng cách tới webcam. Bộ phát hiện được cấu hình với `min_face_size=20`.
 
-3. **Bị báo lỗi `[WinError 10048]` hoặc Camera bị chiếm dụng:**
-   - *Hiện tượng*: `cap.isOpened()` trả về `False`.
-   - *Khắc phục*: Đang có một tiến trình Python hoặc ứng dụng (Zoom, Teams, Camera app) chạy ngầm chiếm cổng camera. Chạy lệnh:
-     ```bash
-     taskkill /F /IM python.exe
-     ```
+3. **Camera đang được ứng dụng khác sử dụng**
+   - Nếu `cap.isOpened()` trả về `False`, hãy kiểm tra chỉ số camera và quyền truy cập trong Windows.
+   - Đóng cửa sổ Lab 5 hoặc ứng dụng khác đang mở webcam, rồi thử lại.
 
 4. **Độ tương đồng Cosine Similarity vượt quá 1.0 hoặc bị âm bất thường:**
    - *Hiện tượng*: Giá trị sim hiển thị $1.4$ hoặc $-5.2$.
