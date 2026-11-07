@@ -52,15 +52,12 @@ def run_webcam(
     )
 
     print(f"\n[Webcam] Đang kết nối tới Camera #{camera_id}...")
-    cap = open_webcam(camera_id)
+    cap = open_webcam(camera_id, width=640, height=480)
 
     if not cap.isOpened():
         print(f"[LỖI] Không thể mở webcam với ID={camera_id}!")
         print("Vui lòng kiểm tra lại thiết bị camera hoặc quyền truy cập webcam trên máy.")
         return
-
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
 
     actual_w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     actual_h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
