@@ -10,6 +10,8 @@ Mỗi lab theo cùng một khuôn và chạy độc lập được. Mỗi lab t�
 | [Lab4](Lab4/README.md) | Wavelet Hash so sánh ảnh | `Lab4.ipynb` | `Lab4.py`, `app_tim_kiem.py`, `tao_du_lieu.py` | `bai1_wavelet_hash.png`, `bai2_so_sanh_cap_anh.png`, `bai3_roc_db4.png` |
 | [Lab5](Lab5/README.md) | Nhận diện khuôn mặt MTCNN + FaceNet | `Lab5.ipynb` | `Lab5.py` (webcam), `register_face.py` | `bai1_mtcnn_phat_hien.png`, `bai3_nhan_dien_anh_tinh.png` |
 
+**Dự án mở rộng:** [canny_project/](canny_project/README.md) phát triển Lab3 thành dự án nghiên cứu Canny: tự cài đặt bằng NumPy (trùng từng pixel với OpenCV / scikit-image), dữ liệu có ground truth, 10 thực nghiệm, 223 test. Không ảnh hưởng đến thư mục `Lab3/`.
+
 ## Cấu trúc
 
 ```

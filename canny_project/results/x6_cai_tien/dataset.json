@@ -1,0 +1,23 @@
+{
+  "stats": {
+    "count": 30,
+    "skipped": 0,
+    "sizes": [
+      [
+        256,
+        256
+      ]
+    ],
+    "channels": [
+      1
+    ],
+    "dtypes": [
+      "float64"
+    ],
+    "mean_intensity": 0.24992860416576954,
+    "mean_std": 0.13604324816998545,
+    "with_ground_truth": 30,
+    "objects": 180
+  },
+  "skipped": []
+}

@@ -1,0 +1,49 @@
+name = "x8b_video_chuyen_dong"
+question = "E4"
+description = """
+Video tổng hợp có vật tịnh tiến 2 px/khung, nhiễu độc lập mỗi khung (sigma = 0.08). So sánh Canny từng khung với làm trơn theo
+thời gian (Gaussian 1D trục khung, temporal_sigma) về F1 với ground truth và độ ổn định F1 giữa khung liên tiếp.
+"""
+seed = 7
+
+[dataset]
+source = "synthetic"
+family = "video"
+count = 2
+size = 128
+family_kwargs = { n_frames = 16, noise_sigma = 0.08, speed = 2.0 }
+
+[[runs]]
+label = "tung_khung"
+algorithm = "canny_manual_fast"
+params = { profile = "skimage", sigma = 1.5, low_threshold = 0.04, high_threshold = 0.1 }
+
+[[runs]]
+label = "tung_khung_nguong_nhieu"
+algorithm = "canny_manual_fast"
+params = { profile = "skimage", sigma = 1.5, threshold_strategy = "noise" }
+
+[[runs]]
+label = "lam_tron_thoi_gian_1"
+algorithm = "canny_manual_fast"
+temporal_sigma = 1.0
+params = { profile = "skimage", sigma = 1.5, low_threshold = 0.04, high_threshold = 0.1 }
+
+[[runs]]
+label = "lam_tron_thoi_gian_2"
+algorithm = "canny_manual_fast"
+temporal_sigma = 2.0
+params = { profile = "skimage", sigma = 1.5, low_threshold = 0.04, high_threshold = 0.1 }
+
+[[runs]]
+label = "lam_tron_thoi_gian_2_nguong_nhieu"
+algorithm = "canny_manual_fast"
+temporal_sigma = 2.0
+params = { profile = "skimage", sigma = 1.5, threshold_strategy = "noise" }
+
+[evaluation]
+metrics = ["edge", "temporal"]
+tolerance = 1.5
+
+[figures]
+table = ["f1", "precision", "recall"]
