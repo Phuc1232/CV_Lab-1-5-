@@ -99,7 +99,8 @@ def register_from_webcam(
         while True:
             ret, frame = cap.read()
             if not ret or frame is None:
-                continue
+                print("[Webcam] Không nhận được tín hiệu hình ảnh từ camera.")
+                break
 
             frame = cv2.flip(frame, 1)
             display_frame = frame.copy()

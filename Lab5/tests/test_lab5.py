@@ -159,25 +159,36 @@ def test_open_webcam_skips_solid_green_and_keeps_textured_green(monkeypatch):
     monkeypatch.setattr(backends, "sys", SimpleNamespace(platform="win32"))
     monkeypatch.setattr(backends.cv2, "VideoCapture", video_capture)
 
-    assert backends.open_webcam(2, width=640, height=480) is textured
+    cap = backends.open_webcam(2, width=640, height=480)
+    assert cap.isOpened()
+    ret, frame = cap.read()
+    assert ret and frame is textured_green
     assert video_capture.call_args_list == [
         call(2, backends.cv2.CAP_DSHOW),
-        call(2, backends.cv2.CAP_MSMF),
+        call(2, backends.cv2.CAP_DSHOW),
     ]
-    for capture in (solid, textured):
-        assert capture.method_calls[:4] == [
-            call.isOpened(),
-            call.set(backends.cv2.CAP_PROP_FRAME_WIDTH, 640),
-            call.set(backends.cv2.CAP_PROP_FRAME_HEIGHT, 480),
-            call.read(),
-        ]
+    settings = [
+        call.isOpened(),
+        call.set(backends.cv2.CAP_PROP_FRAME_WIDTH, 640),
+        call.set(backends.cv2.CAP_PROP_FRAME_HEIGHT, 480),
+    ]
+    assert solid.method_calls[:4] == [*settings, call.read()]
+    assert textured.method_calls[:5] == [
+        *settings,
+        call.set(backends.cv2.CAP_PROP_FOURCC, backends.cv2.VideoWriter_fourcc(*"MJPG")),
+        call.read(),
+    ]
     solid.release.assert_called_once_with()
     textured.release.assert_not_called()
+    cap.release()
+    textured.release.assert_called_once_with()
 
 
 def test_open_webcam_releases_failed_candidates_without_unvalidated_fallback(monkeypatch):
     unavailable = Mock()
     unavailable.isOpened.return_value = False
+    unsupported_codec = Mock()
+    unsupported_codec.set.return_value = False
     read_error = Mock()
     read_error.read.side_effect = RuntimeError("camera disconnected")
     malformed = Mock()
@@ -188,24 +199,73 @@ def test_open_webcam_releases_failed_candidates_without_unvalidated_fallback(mon
         (True, np.zeros((8, 8, 4), dtype=np.uint8)),
         (True, np.zeros((8, 8, 3), dtype=np.float32)),
     ]
-    unopened = backends.cv2.VideoCapture()
-    video_capture = Mock(side_effect=[unavailable, read_error, malformed, unopened])
+    video_capture = Mock(side_effect=[unavailable, unsupported_codec, read_error, malformed])
     monkeypatch.setattr(backends, "sys", SimpleNamespace(platform="win32"))
     monkeypatch.setattr(backends.cv2, "VideoCapture", video_capture)
 
     cap = backends.open_webcam(2)
 
-    assert cap is unopened
     assert not cap.isOpened()
+    assert cap.read() == (False, None)
     assert video_capture.call_args_list == [
+        call(2, backends.cv2.CAP_DSHOW),
         call(2, backends.cv2.CAP_DSHOW),
         call(2, backends.cv2.CAP_MSMF),
         call(2, backends.cv2.CAP_ANY),
-        call(),
     ]
+    unsupported_codec.read.assert_not_called()
+    unsupported_codec.release.assert_called_once_with()
     for capture in (unavailable, read_error, malformed):
         capture.set.assert_not_called()
         capture.release.assert_called_once_with()
+
+
+def test_webcam_filters_late_green_and_recovers_until_candidates_run_out(monkeypatch):
+    healthy = np.full((8, 8, 3), (20, 40, 60), dtype=np.uint8)
+    green = np.full((8, 8, 3), (0, 135, 0), dtype=np.uint8)
+    recovered = np.full((8, 8, 3), (30, 50, 70), dtype=np.uint8)
+    initial = Mock()
+    initial.read.side_effect = [
+        *([(True, healthy)] * 5),
+        (True, green),
+        (True, healthy),
+        *([(True, green)] * 3),
+    ]
+    alternate = Mock()
+    alternate.read.side_effect = [
+        *([(True, recovered)] * 6),
+        *([(True, green)] * 3),
+    ]
+    solid = Mock()
+    solid.read.return_value = (True, green)
+    unavailable = Mock()
+    unavailable.isOpened.return_value = False
+    video_capture = Mock(side_effect=[initial, alternate, solid, unavailable])
+    monkeypatch.setattr(backends, "sys", SimpleNamespace(platform="win32"))
+    monkeypatch.setattr(backends.cv2, "VideoCapture", video_capture)
+
+    cap = backends.open_webcam(2)
+    ret, frame = cap.read()
+    assert ret and frame is healthy
+    assert cap.generation == 1
+    video_capture.assert_called_once_with(2, backends.cv2.CAP_DSHOW)
+    ret, frame = cap.read()
+    assert ret and frame is recovered
+    assert cap.generation == 2
+    initial.release.assert_called_once_with()
+
+    assert cap.read() == (False, None)
+    assert cap.read() == (False, None)
+    assert not cap.isOpened()
+    cap.release()
+    for capture in (alternate, solid, unavailable):
+        capture.release.assert_called_once_with()
+    assert video_capture.call_args_list == [
+        call(2, backends.cv2.CAP_DSHOW),
+        call(2, backends.cv2.CAP_DSHOW),
+        call(2, backends.cv2.CAP_MSMF),
+        call(2, backends.cv2.CAP_ANY),
+    ]
 
 
 def test_open_webcam_backend_anti_green_screen():

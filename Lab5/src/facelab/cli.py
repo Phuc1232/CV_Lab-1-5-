@@ -76,6 +76,7 @@ def run_webcam(
     skip_enabled = frame_skip > 1
     last_detections = []
     latest_face_box = None
+    capture_generation = cap.generation
 
     try:
         while True:
@@ -94,7 +95,9 @@ def run_webcam(
                 fps_start_time = time.time()
 
             frame_count += 1
-            should_process = (not skip_enabled) or (frame_count % frame_skip == 0)
+            capture_changed = cap.generation != capture_generation
+            capture_generation = cap.generation
+            should_process = capture_changed or not skip_enabled or frame_count % frame_skip == 0
 
             if should_process:
                 annotated_frame, last_detections = recognizer.process_frame(
