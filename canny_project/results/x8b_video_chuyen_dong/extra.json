@@ -1,0 +1,30 @@
+{
+  "shapes": {},
+  "temporal": {
+    "tung_khung sigma=1.5,low_threshold=0.04,high_threshold=0.1": {
+      "temporal_f1_mean": 0.7644828776096249,
+      "temporal_f1_std": 0.013132600212826268,
+      "pairs": 30
+    },
+    "tung_khung_nguong_nhieu sigma=1.5,threshold_strategy=noise": {
+      "temporal_f1_mean": 0.7425665615158128,
+      "temporal_f1_std": 0.04447690069856036,
+      "pairs": 30
+    },
+    "lam_tron_thoi_gian_1 sigma=1.5,low_threshold=0.04,high_threshold=0.1": {
+      "temporal_f1_mean": 0.5854040908982678,
+      "temporal_f1_std": 0.14795994522228229,
+      "pairs": 30
+    },
+    "lam_tron_thoi_gian_2 sigma=1.5,low_threshold=0.04,high_threshold=0.1": {
+      "temporal_f1_mean": 0.7641598548020949,
+      "temporal_f1_std": 0.14726156289498263,
+      "pairs": 30
+    },
+    "lam_tron_thoi_gian_2_nguong_nhieu sigma=1.5,threshold_strategy=noise": {
+      "temporal_f1_mean": 0.8285034072484493,
+      "temporal_f1_std": 0.06638902556393392,
+      "pairs": 30
+    }
+  }
+}
