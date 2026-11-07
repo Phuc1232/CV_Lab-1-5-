@@ -34,7 +34,7 @@ def face_system():
     Fixture khởi tạo đối tượng FaceRecognitionSystem trên CPU để kiểm thử.
     """
     system = FaceRecognitionSystem(
-        db_dir=os.path.join(CURRENT_DIR, "du_lieu", "known_faces"),
+        db_dir=os.path.join(CURRENT_DIR, "known_faces"),
         similarity_threshold=0.7,
         device="cpu",
     )

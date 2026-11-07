@@ -26,10 +26,6 @@ if sys.platform == "win32":
 
 # Thư mục hiện tại của file mã nguồn (tránh lỗi hardcode đường dẫn)
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
-# Ảnh vào ở du_lieu/, ảnh ra ở ket_qua/script/ (tách khỏi hình của notebook Lab1.ipynb)
-INPUT_DIR = os.path.join(CURRENT_DIR, "du_lieu")
-OUTPUT_DIR = os.path.join(CURRENT_DIR, "ket_qua", "script")
-os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 
 # =============================================================================
@@ -57,7 +53,7 @@ def doc_va_hien_thi_anh(duong_dan_anh):
     print(f"  - Số kênh màu: {so_kenh} (OpenCV đọc mặc định theo thứ tự BGR)")
 
     # Lưu ảnh sang định dạng PNG trong thư mục hiện tại
-    duong_dan_luu_png = os.path.join(OUTPUT_DIR, "anh_luu.png")
+    duong_dan_luu_png = os.path.join(CURRENT_DIR, "anh_luu.png")
     cv2.imwrite(duong_dan_luu_png, anh_cv)
     print(f"  -> Đã lưu ảnh OpenCV sang định dạng PNG: {duong_dan_luu_png}")
 
@@ -71,7 +67,7 @@ def doc_va_hien_thi_anh(duong_dan_anh):
         print(f"  - Hệ màu: {anh_pil.mode} (Pillow đọc theo chuẩn RGB)")
 
         # Lưu ảnh sang định dạng JPEG bằng Pillow
-        duong_dan_luu_pil = os.path.join(OUTPUT_DIR, "anh_luu_pillow.jpg")
+        duong_dan_luu_pil = os.path.join(CURRENT_DIR, "anh_luu_pillow.jpg")
         anh_pil.save(duong_dan_luu_pil, format="JPEG")
         print(f"  -> Đã lưu ảnh Pillow sang định dạng JPEG: {duong_dan_luu_pil}")
 
@@ -99,20 +95,20 @@ def chuyen_doi_khong_gian_mau(anh):
     # 2.1. Chuyển đổi sang Grayscale
     # Công thức BT.601: Y = 0.299*R + 0.587*G + 0.114*B
     anh_xam = cv2.cvtColor(anh, cv2.COLOR_BGR2GRAY)
-    path_xam = os.path.join(OUTPUT_DIR, "anh_grayscale.jpg")
+    path_xam = os.path.join(CURRENT_DIR, "anh_grayscale.jpg")
     cv2.imwrite(path_xam, anh_xam)
     print(f"  -> Đã chuyển và lưu ảnh Grayscale: {path_xam}")
 
     # 2.2. Chuyển đổi sang HSV (Hue - Saturation - Value)
     # H: 0-179 (sắc thái màu), S: 0-255 (độ đậm), V: 0-255 (độ sáng)
     anh_hsv = cv2.cvtColor(anh, cv2.COLOR_BGR2HSV)
-    path_hsv = os.path.join(OUTPUT_DIR, "anh_hsv.jpg")
+    path_hsv = os.path.join(CURRENT_DIR, "anh_hsv.jpg")
     cv2.imwrite(path_hsv, anh_hsv)
     print(f"  -> Đã chuyển và lưu ảnh HSV: {path_hsv}")
 
     # 2.3. Chuyển đổi sang LAB (Luminance, a: Green-Red, b: Blue-Yellow)
     anh_lab = cv2.cvtColor(anh, cv2.COLOR_BGR2LAB)
-    path_lab = os.path.join(OUTPUT_DIR, "anh_lab.jpg")
+    path_lab = os.path.join(CURRENT_DIR, "anh_lab.jpg")
     cv2.imwrite(path_lab, anh_lab)
     print(f"  -> Đã chuyển và lưu ảnh LAB: {path_lab}")
 
@@ -143,7 +139,7 @@ def cat_xen_va_thay_doi_kich_thuoc(anh, ti_le=0.5):
     x1, x2 = rong // 4, 3 * rong // 4
     anh_cat = anh[y1:y2, x1:x2]
 
-    path_cat = os.path.join(OUTPUT_DIR, "anh_cat.jpg")
+    path_cat = os.path.join(CURRENT_DIR, "anh_cat.jpg")
     cv2.imwrite(path_cat, anh_cat)
     print(f"  -> Cắt vùng trung tâm: từ ({x1}, {y1}) đến ({x2}, {y2})")
     print(f"  -> Kích thước ảnh sau cắt: {anh_cat.shape[1]}x{anh_cat.shape[0]} px")
@@ -159,7 +155,7 @@ def cat_xen_va_thay_doi_kich_thuoc(anh, ti_le=0.5):
         interpolation=cv2.INTER_AREA if ti_le < 1.0 else cv2.INTER_CUBIC
     )
 
-    path_resize = os.path.join(OUTPUT_DIR, "anh_resize.jpg")
+    path_resize = os.path.join(CURRENT_DIR, "anh_resize.jpg")
     cv2.imwrite(path_resize, anh_resize)
     print(f"  -> Thay đổi kích thước theo tỷ lệ: {ti_le * 100:.0f}%")
     print(f"  -> Kích thước mới: {anh_resize.shape[1]}x{anh_resize.shape[0]} px (Gốc: {rong}x{cao} px)")
@@ -219,7 +215,7 @@ def ve_hinh_va_them_van_ban(anh):
         cv2.LINE_AA
     )
 
-    path_ve = os.path.join(OUTPUT_DIR, "anh_ve.jpg")
+    path_ve = os.path.join(CURRENT_DIR, "anh_ve.jpg")
     cv2.imwrite(path_ve, anh_ve)
     print(f"  -> Đã vẽ các hình cơ bản và thêm chữ.")
     print(f"  -> Đã lưu ảnh kết quả: {path_ve}")
@@ -241,7 +237,7 @@ def main():
     print("=" * 60)
 
     # Đường dẫn ảnh mặc định
-    duong_dan_mac_dinh = os.path.join(INPUT_DIR, "anh.jpg")
+    duong_dan_mac_dinh = os.path.join(CURRENT_DIR, "anh.jpg")
 
     prompt = f"Nhập đường dẫn ảnh [Nhấn Enter để dùng mặc định '{os.path.basename(duong_dan_mac_dinh)}']: "
     duong_dan = input(prompt).strip().strip('"').strip("'")
@@ -269,7 +265,7 @@ def main():
 
     print("\n" + "=" * 60)
     print(" HOÀN THÀNH TOÀN BỘ BÀI THỰC HÀNH CHƯƠNG 1!")
-    print(f" Tất cả ảnh kết quả đã được lưu tại: {OUTPUT_DIR}")
+    print(f" Tất cả ảnh kết quả đã được lưu tại: {CURRENT_DIR}")
     print("=" * 60)
 
 

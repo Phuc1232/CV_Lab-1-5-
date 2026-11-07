@@ -32,7 +32,7 @@ if CURRENT_DIR not in sys.path:
 
 from Lab5 import open_webcam
 
-DEFAULT_DB_DIR = os.path.join(CURRENT_DIR, "du_lieu", "known_faces")
+DEFAULT_DB_DIR = os.path.join(CURRENT_DIR, "known_faces")
 
 
 def register_from_image(

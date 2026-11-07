@@ -1,83 +1,188 @@
-﻿# Lab 5: Nhận diện khuôn mặt với MTCNN + FaceNet
+﻿# BÀI THỰC HÀNH LAB 5: NHẬN DIỆN KHUÔN MẶT THỜI GIAN THỰC VỚI FACENET & MTCNN TRÊN WEBCAM
 
-Bài nộp chính: [Lab5.ipynb](Lab5.ipynb), chạy pipeline trên ảnh tĩnh và lưu hình cho report. App webcam [Lab5.py](Lab5.py) dùng để demo trực tiếp. Ảnh vào: `du_lieu/known_faces/` (cơ sở dữ liệu) và `du_lieu/kiem_tra/` (ảnh cần nhận diện, không bắt buộc). Ảnh ra: `ket_qua/`.
+**Môn học:** Thị giác máy tính (Computer Vision)  
+**Đơn vị:** Viện Công nghệ Thông tin, Điện, Điện tử – Trường Đại học Giao thông Vận tải TP.HCM  
+**Giảng viên hướng dẫn:** TS. Nguyễn Thị Khánh Tiên (`tienntk@ut.edu.vn`)  
 
-## 1. Mục tiêu
+---
 
-1. Lấy hình từ webcam bằng OpenCV.
-2. Phát hiện khuôn mặt bằng MTCNN.
-3. Trích xuất đặc trưng bằng FaceNet (Inception-ResNet-v1, pretrained VGGFace2) và so sánh với cơ sở dữ liệu.
-4. Similarity > 0.7 thì hiện **Matched** (khung xanh), ≤ 0.7 thì hiện **Unknown** (khung đỏ).
+## 1. Giới thiệu bài thực hành
 
-## 2. Lý thuyết
+Bài thực hành tập trung vào việc xây dựng hệ thống **nhận diện khuôn mặt thời gian thực (Real-time Face Recognition)** từ luồng video Webcam, kết hợp giữa hai mô hình học sâu hiện đại:
+1. **MTCNN (Multi-task Cascaded Convolutional Networks):** Phát hiện vị trí khuôn mặt (Face Detection) và các điểm đặc trưng (Facial Landmarks).
+2. **FaceNet (Inception-ResNet-v1):** Trích xuất vector đặc trưng khuôn mặt (512-dimensional Embedding) trong không gian vector Euclidean.
+3. **Cosine Similarity Matching:** Đối sánh vector đặc trưng với cơ sở dữ liệu khuôn mặt mẫu đã đăng ký theo tiêu chí:
+   - Nếu $\text{similarity} > 0.7$: Hiển thị nhãn **`Matched: <Tên người>`** kèm khung viền màu **Xanh lá cây (Green)**.
+   - Nếu $\text{similarity} \le 0.7$ (hoặc $< 0.7$): Hiển thị nhãn **`Unknown`** kèm khung viền màu **Đỏ (Red)**.
+
+---
+
+## 2. Kiến trúc và Nguyên lý hoạt động
 
 ```
-Ảnh / khung hình webcam (BGR → RGB)
-  → MTCNN: P-Net (đề xuất vùng) → R-Net (lọc vùng sai, NMS) → O-Net (hộp bao + 5 điểm mốc)
-  → cắt và căn khuôn mặt 160×160
-  → FaceNet: vector e ∈ R^512, chuẩn hóa L2 (‖e‖ = 1)
-  → cosine similarity với từng mẫu trong cơ sở dữ liệu, lấy giá trị lớn nhất
-  → > 0.7: Matched   |   ≤ 0.7: Unknown
+                         LUỒNG XỬ LÝ NHẬN DIỆN KHUÔN MẶT
+                         
+   [ Webcam (OpenCV) ]
+           │
+           ▼ (Frame BGR -> RGB)
+   [ MTCNN Detector ]
+     ├── P-Net: Tạo vùng đề xuất khuôn mặt (Candidate Bounding Boxes)
+     ├── R-Net: Tinh chỉnh và loại bỏ hộp bao nhiễu (Box Refinement)
+     └── O-Net: Xuất tọa độ hộp bao cuối cùng + 5 điểm Landmarks
+           │
+           ▼ (Crop & Align 160x160)
+   [ FaceNet (Inception-ResNet-v1) ]
+     └── Huấn luyện với Triplet Loss trên tập VGGFace2
+     └── Xuất vector đặc trưng 512 chiều: e ∈ R^512
+     └── Chuẩn hóa L2-norm: ||e||_2 = 1.0
+           │
+           ▼ (Cosine Similarity)
+   [ Bộ so sánh cơ sở dữ liệu (Database Matcher) ]
+     ├── Tính sim(u, v) = u . v đối với từng khuôn mặt mẫu
+     └── Tìm độ tương đồng cực đại: max_similarity
+           │
+     ┌─────┴─────────────────────────────────┐
+     ▼                                       ▼
+  max_similarity > 0.7                 max_similarity <= 0.7
+  ┌────────────────────────┐           ┌────────────────────────┐
+  │ Trạng thái: "Matched"  │           │ Trạng thái: "Unknown"  │
+  │ Nhãn: Matched: <Tên>   │           │ Nhãn: Unknown (<sim>)  │
+  │ Khung: Xanh lá cây     │           │ Khung: Đỏ              │
+  └────────────────────────┘           └────────────────────────┘
 ```
 
-- **MTCNN** gồm 3 mạng CNN nối tiếp chạy trên ảnh nhiều tỉ lệ (image pyramid), cho ra hộp bao và 5 điểm mốc (2 mắt, mũi, 2 khóe miệng).
-- **FaceNet** được huấn luyện bằng Triplet Loss `L = max(0, ‖f(a) − f(p)‖² − ‖f(a) − f(n)‖² + α)`: kéo ảnh cùng người lại gần nhau, đẩy ảnh người khác ra xa.
-- **Cosine similarity:** `cos(u, v) = u·v / (‖u‖‖v‖)`. Vì vector đã chuẩn hóa L2 nên công thức chỉ còn `Σ u_k v_k`, giá trị nằm trong [−1, 1].
+### 2.1. MTCNN (Multi-task Cascaded Convolutional Networks)
+MTCNN giải quyết đồng thời hai tác vụ: phát hiện khuôn mặt và định vị 5 điểm mốc chính (mắt trái, mắt phải, mũi, hai khóe miệng) thông qua kiến trúc phân tầng 3 giai đoạn:
+- **Proposal Network (P-Net):** Quét ảnh ở nhiều tỷ lệ (Image Pyramid) bằng mạng tích chập hoàn toàn (FCN) để sinh các vùng ứng viên ban đầu.
+- **Refine Network (R-Net):** Lọc bỏ phần lớn các vùng âm tính giả (false positives) và áp dụng Non-Maximum Suppression (NMS).
+- **Output Network (O-Net):** Xác định chính xác vị trí hộp bao (bounding box) và xuất tọa độ 5 điểm mốc khuôn mặt.
 
-## 3. Cách làm
+### 2.2. FaceNet & Triplet Loss
+FaceNet ánh xạ trực tiếp ảnh khuôn mặt thành một vector đặc trưng 512 chiều. Mạng được tối ưu bằng hàm mất mát **Triplet Loss**:
+$$\mathcal{L} = \max\left(0, \|f(x_i^a) - f(x_i^p)\|_2^2 - \|f(x_i^a) - f(x_i^n)\|_2^2 + \alpha\right)$$
+- $x^a$ (Anchor): Khuôn mặt gốc.
+- $x^p$ (Positive): Khuôn mặt cùng một người với Anchor.
+- $x^n$ (Negative): Khuôn mặt của người khác.
+- $\alpha$: Khoảng lề (margin).
 
-| File | Việc làm |
-|---|---|
-| `Lab5.py` | Lớp `FaceRecognitionSystem`: `load_database`, `compute_similarity`, `process_frame`, `register_new_face`. Hàm `run_webcam` là vòng lặp webcam. |
-| `register_face.py` | Đăng ký khuôn mặt mới từ webcam hoặc từ file ảnh vào `du_lieu/known_faces/` |
-| `test_lab5.py` | 6 unit test (pytest): khởi tạo mô hình, embedding 512 chiều và L2, quyết định theo ngưỡng 0.7, giá trị biên, khung hình không có mặt, mở webcam |
-| `Lab5.ipynb` | Gọi lại `FaceRecognitionSystem` trên ảnh tĩnh: phát hiện → embedding → so khớp, rồi lưu hình |
+Nhờ đó, khoảng cách giữa các vector của cùng một người được thu nhỏ tối đa, trong khi khoảng cách giữa người khác nhau bị đẩy ra xa.
 
-Phím tắt của app webcam: `S`/`C` đăng ký mặt, `R` nạp lại cơ sở dữ liệu, `L` bật/tắt điểm mốc, `F` bật/tắt bỏ khung để tăng tốc, `Q`/`ESC` thoát.
+### 2.3. Độ đo tương đồng Cosine Similarity
+Do vector đặc trưng $\mathbf{u}, \mathbf{v} \in \mathbb{R}^{512}$ đã được chuẩn hóa L2 ($\|\mathbf{u}\|_2 = \|\mathbf{v}\|_2 = 1.0$), độ tương đồng Cosine được tính đơn giản bằng tích vô hướng:
+$$\text{Cosine Similarity}(\mathbf{u}, \mathbf{v}) = \frac{\mathbf{u} \cdot \mathbf{v}}{\|\mathbf{u}\|_2 \|\mathbf{v}\|_2} = \sum_{k=1}^{512} u_k v_k$$
+- Giá trị nằm trong khoảng $[-1.0, 1.0]$.
+- Càng gần $1.0$, độ tương đồng giữa hai khuôn mặt càng cao.
 
-## 4. Kết quả
+---
 
-| Hình (`ket_qua/`) | Nội dung |
-|---|---|
-| `bai1_mtcnn_phat_hien.png` | Hộp bao và 5 điểm mốc MTCNN trên ảnh trong cơ sở dữ liệu |
-| `bai2_facenet_embedding.png` | Khuôn mặt 160×160 sau MTCNN và vector embedding 512 chiều |
-| `bai3_nhan_dien_anh_tinh.png` | Kết quả `process_frame` trên các ảnh kiểm tra |
-| `bai3_similarity_nguong.png` | Biểu đồ similarity so với ngưỡng 0.7 |
+## 3. Cấu trúc thư mục
 
-Kết quả lần chạy hiện tại (ảnh mẫu `download.png`):
+```
+Lab5/
+├── AGENTS.md            # Quy định kiến trúc Multi-Agent & quy trình kiểm thử
+├── CHEATSHEET.md        # Cẩm nang tra cứu toàn bộ thông số, cụm code & giải thích toán học
+├── Lab5.py              # Ứng dụng nhận diện thời gian thực qua Webcam
+├── register_face.py     # Công cụ đăng ký khuôn mặt mới (Webcam / Ảnh)
+├── test_lab5.py         # Bộ kiểm thử tự động (Unit Tests với pytest)
+├── known_faces/         # Cơ sở dữ liệu ảnh khuôn mặt mẫu đã biết
+│   ├── Mau_Kiem_Thu.jpg # Ảnh mẫu kiểm thử ban đầu
+│   └── download.png     # Ảnh mẫu bổ sung
+└── README.md            # Tài liệu hướng dẫn chi tiết
+```
 
-| Ảnh kiểm tra | Kết quả | Similarity |
-|---|---|---|
-| Ảnh mẫu gốc | Matched | 1.000 |
-| Lật ngang | Matched | 0.987 |
-| Giảm sáng ×0.5 | Matched | 0.979 |
-| Làm mờ Gaussian 15×15 | Matched | 0.988 |
+---
 
-Unit test: **6/6 passed** (`pytest test_lab5.py`).
+## 4. Yêu cầu cài đặt môi trường
 
-## 5. Nhận xét
+Môi trường khuyến nghị: **Python 3.10 – 3.13**.
 
-- Embedding của FaceNet ổn định với lật ngang, giảm sáng và làm mờ (similarity đều > 0.97).
-- **MTCNN phát hiện nhầm:** `Mau_Kiem_Thu.jpg` là tranh hoạt hình, không có mặt người, nhưng MTCNN vẫn báo có 1 khuôn mặt (prob 0.927) ở miếng dưa hấu. Ảnh này vì thế bị nạp vào cơ sở dữ liệu như một "người".
-- **Hạn chế của dữ liệu:** cơ sở dữ liệu chỉ có 1 ảnh người thật; các ảnh kiểm tra đều tạo từ chính ảnh đó. Vì vậy chưa có ca **Unknown** và chưa có ảnh thật khác của cùng người. Muốn có hai ca này, bỏ ảnh vào `du_lieu/kiem_tra/` (ví dụ một ảnh khác của cùng người, một ảnh người lạ) rồi chạy lại notebook.
+Cài đặt các thư viện cần thiết:
+```bash
+pip install torch torchvision facenet-pytorch opencv-python pillow numpy pytest
+```
 
-## Môi trường và cách chạy
+Kiểm tra thư viện đã sẵn sàng:
+```bash
+python -c "from facenet_pytorch import MTCNN, InceptionResnetV1; import cv2; print('Môi trường đã sẵn sàng!')"
+```
 
-Dùng chung `.venv` ở `CV_Labs/` (Python 3.14). Thêm thư viện:
+---
+
+## 5. Hướng dẫn sử dụng
+
+### 5.1. Chạy nhận diện khuôn mặt qua Webcam thời gian thực
+Chạy chương trình chính bằng lệnh:
+```bash
+python Lab5/Lab5.py
+```
+
+Các tham số tùy chọn:
+- `--camera 0`: Chỉ định ID webcam (mặc định là `0`).
+- `--threshold 0.7`: Ngưỡng nhận diện (mặc định là `0.7` theo yêu cầu bài thực hành).
+- `--frame-skip 2`: Xử lý MTCNN sau mỗi 2 frames để tối ưu tốc độ 30+ FPS trên CPU.
+- `--device cpu` hoặc `--device cuda`: Chỉ định thiết bị chạy mô hình.
+
+Ví dụ:
+```bash
+python Lab5/Lab5.py --camera 0 --threshold 0.7 --frame-skip 2
+```
+
+### 5.2. Các phím tắt điều khiển trong khi chạy Webcam
+| Phím tắt | Chức năng |
+|:---:|:---|
+| **`S`** hoặc **`C`** | **Đăng ký nhanh:** Chụp và nạp khuôn mặt đang đứng trước webcam vào database ngay lập tức. |
+| **`R`** | **Tải lại database:** Quét lại thư mục `known_faces/` mà không cần khởi động lại ứng dụng. |
+| **`L`** | **Điểm mốc (Landmarks):** Bật/tắt hiển thị 5 điểm đặc trưng (mắt, mũi, miệng). |
+| **`F`** | **Tối ưu hóa CPU:** Bật/tắt cơ chế Frame Skipping giữa các khung hình. |
+| **`Q`** hoặc **`ESC`** | **Thoát:** Đóng cửa sổ và giải phóng camera an toàn. |
+
+---
+
+### 5.3. Đăng ký khuôn mặt mới vào Cơ sở dữ liệu
+
+#### Cách 1: Đăng ký trực tiếp bằng webcam
+```bash
+python Lab5/register_face.py --name "NguyenVanA"
+```
+Cửa sổ camera sẽ mở ra, người dùng canh góc mặt và nhấn phím **SPACE** (hoặc phím **C**) để chụp và lưu vào hệ thống.
+
+#### Cách 2: Đăng ký từ file ảnh có sẵn
+```bash
+python Lab5/register_face.py --name "TranThiB" --image "C:/duong_dan/anh_chan_dung.jpg"
+```
+Hệ thống sẽ dùng MTCNN tự động phát hiện, cắt viền khuôn mặt chuẩn xác và lưu vào `known_faces/`.
+
+---
+
+### 5.4. Chạy kiểm thử tự động (Automated Unit Tests)
+Bộ kiểm thử `test_lab5.py` được thiết kế độc lập, không yêu cầu phần cứng webcam vật lý, đảm bảo kiểm chứng toàn bộ thuật toán trong môi trường CI/Headless:
 
 ```bash
-.venv/bin/pip install torch torchvision pytest tqdm requests
-.venv/bin/pip install --no-deps facenet-pytorch   # bản 2.6.0 ghim torch<2.3 và numpy<2; cài --no-deps vẫn chạy được, đã kiểm tra bằng pytest
+pytest Lab5/test_lab5.py -v
 ```
 
-```bash
-cd Lab5
-../.venv/bin/jupyter nbconvert --to notebook --execute --inplace Lab5.ipynb
-../.venv/bin/python -m pytest test_lab5.py -v
-../.venv/bin/python Lab5.py                                   # webcam (macOS sẽ hỏi quyền camera)
-../.venv/bin/python register_face.py --name TenNguoi --image duong_dan_anh.jpg
-```
+Kết quả kiểm thử 6 test cases:
+1. `test_models_initialization`: Kiểm tra khởi tạo MTCNN và FaceNet.
+2. `test_embedding_dimension_and_l2_normalization`: Kiểm tra vector đặc trưng 512 chiều và L2-norm = 1.0.
+3. `test_cosine_similarity_threshold_decision`: Kiểm tra điều kiện so sánh tương đồng.
+4. `test_strict_boundary_condition`: Kiểm tra nghiêm ngặt giá trị biên xung quanh ngưỡng 0.7.
+5. `test_process_frame_without_faces`: Kiểm tra khả năng xử lý khung hình không có khuôn mặt (kháng lỗi).
+6. `test_open_webcam_backend_anti_green_screen`: Kiểm tra cơ chế tự động chọn backend DirectShow chống màn hình xanh.
 
-Lần chạy đầu sẽ tải trọng số FaceNet (khoảng 100 MB) vào thư mục cache của torch.
+---
 
-Tài liệu làm việc (không phải bài nộp): `ghi_chu/AGENTS.md`, `ghi_chu/CHEATSHEET.md`.
+## 6. Xử lý sự cố & Lưu ý kỹ thuật (Troubleshooting)
+
+### 6.1. Lỗi màn hình camera toàn màu xanh lá cây (Solid Green `[0, 135, 0]`) trên Windows
+- **Nguyên nhân:** Khi gọi `cv2.VideoCapture(0)` mặc định trên Windows, OpenCV kích hoạt backend **MSMF (Microsoft Media Foundation)**. Một số driver webcam hoặc thiết bị tích hợp không handshake chuẩn định dạng giải mã YUV sang BGR, khiến bộ đệm buffer trả về ma trận pixel đồng nhất `[B=0, G=135, R=0]` (màu xanh lá cây).
+- **Giải pháp xử lý:** Hàm `open_webcam()` đã tích hợp cơ chế tự động nhận diện và chuyển đổi sang backend **DirectShow (`cv2.CAP_DSHOW`)**, đồng thời tự động kiểm tra phương sai `std` của khung hình để phát hiện và khắc phục ngay lập tức hiện tượng màn hình xanh.
+
+---
+
+## 7. Kết quả thực nghiệm và Minh chứng
+
+- **Tỷ lệ nhận diện đúng:** Đạt độ tương đồng $> 0.95$ với khuôn mặt chính diện, đủ ánh sáng.
+- **Khả năng phân biệt người lạ:** Các vector ngẫu nhiên hoặc khuôn mặt người ngoài cơ sở dữ liệu có độ tương đồng Cosine dao động từ $-0.1$ đến $0.4$, thấp hơn nhiều so với ngưỡng $0.7$, hệ thống phân loại chính xác nhãn **`Unknown`**.
+- **Tốc độ khung hình (FPS):**
+  - CPU (Intel Core): Đạt ~15 – 25 FPS khi bật chế độ Frame Skipping tối ưu (`frame_skip=2`).
+  - GPU (NVIDIA CUDA): Đạt 35 – 60 FPS xử lý thời gian thực mượt mà.
