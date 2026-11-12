@@ -1,0 +1,13 @@
+{
+  "camera_opencv_100_200": 19686,
+  "camera_skimage_default": 25934,
+  "camera_noise_strategy_sigma2": 39772,
+  "camera_otsu_sigma2": 5861,
+  "camera_noise_sigma_estimate": 0.853451,
+  "shapes_seed42_noise0.1_f1": [
+    0.456558,
+    0.331283,
+    0.340204
+  ],
+  "_ghi_chu": "2026-11-07: camera_noise_strategy_sigma2 đổi do chiến lược noise chuyển sang ngưỡng phổ quát sqrt(2 ln N), T_l = 2 sigma_g (docs/development/phase9_testing_optimization.md)"
+}
