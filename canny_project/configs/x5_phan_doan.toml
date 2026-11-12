@@ -1,0 +1,31 @@
+name = "x5_phan_doan"
+question = "P4a, P4b"
+description = """
+Canny -> closing (ellipse 5x5) -> lấp lỗ -> lọc diện tích -> nhận dạng hình (Douglas–Peucker + đặc trưng).
+Đánh giá mức đối tượng (ghép Hungarian, IoU >= 0.5) và accuracy nhận dạng 6 lớp hình.
+"""
+seed = 4
+
+[dataset]
+source = "synthetic"
+family = "shapes"
+count = 10
+size = 256
+degradations = [{}, { noise_sigma = 0.05 }, { noise_sigma = 0.1 }]
+
+[[runs]]
+label = "canny_manual"
+algorithm = "canny_manual_fast"
+params = { profile = "skimage", sigma = [1.5, 2.5], low_ratio = 0.4, high_threshold = 0.12 }
+
+[[runs]]
+label = "opencv_lab3"
+algorithm = "canny_opencv"
+params = { sigma = 1.5, low_threshold = 30, high_threshold = 90 }
+
+[evaluation]
+metrics = ["segmentation", "shapes", "edge"]
+segmentation = { close_size = 5, close_shape = "ellipse", min_area = 80, backend = "manual" }
+
+[figures]
+table = ["object_f1", "object_recall", "mean_iou_matched", "count_error", "f1"]
