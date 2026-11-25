@@ -1,1 +1,3 @@
 .venv/
+embeddings.sqlite3
+embeddings.sqlite3-*

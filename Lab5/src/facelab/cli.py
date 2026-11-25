@@ -11,7 +11,7 @@ import cv2
 from .backends import open_webcam
 from .config import load_recognition_config
 from .core.recognition import FaceRecognitionSystem
-from .datasets.registration import register_from_image, register_from_webcam
+from .datasets.registration import register_from_image, register_from_images, register_from_webcam
 from .imaging.overlay import draw_hud
 from .paths import DEFAULT_DB_DIR
 
@@ -211,10 +211,10 @@ def run_webcam(
             elif key == ord("s") or key == ord("c"):
                 default_name = f"Nguoi_Dung_{int(time.time()) % 10000}"
                 print(f"\n--- ĐĂNG KÝ KHUÔN MẶT MỚI ---")
-                print("Nhập tên cho khuôn mặt đang đứng trước webcam:")
+                print("Nhập ID cho khuôn mặt đang đứng trước webcam:")
                 print(f"(Nhấn Enter trực tiếp để dùng tên mặc định: '{default_name}')")
                 try:
-                    user_input = input(">> Tên người: ").strip()
+                    user_input = input(">> ID: ").strip()
                     reg_name = user_input if user_input else default_name
                 except Exception:
                     reg_name = default_name
@@ -307,15 +307,19 @@ def register_main(argv=None):
     _configure_console()
     parser = argparse.ArgumentParser(description="Đăng ký khuôn mặt mẫu vào cơ sở dữ liệu Lab 5")
     parser.add_argument(
-        "--name",
-        type=str,
-        help="Tên người cần đăng ký (bắt buộc khi đăng ký)",
+        "--name", "--id",
+        dest="name",
+        help="ID dùng để nhóm các ảnh của cùng một người",
     )
     parser.add_argument(
         "--image",
-        type=str,
-        default=None,
-        help="Đường dẫn file ảnh có sẵn trên đĩa (nếu không cung cấp, sẽ mở webcam để chụp)",
+        action="append",
+        help="Ảnh mẫu có sẵn. Lặp --image cho mỗi ảnh của cùng ID",
+    )
+    parser.add_argument(
+        "--samples",
+        type=int,
+        help="Số mẫu chụp trong một phiên webcam (mặc định: 1)",
     )
     _add_camera_arguments(parser)
     parser.add_argument(
@@ -333,10 +337,19 @@ def register_main(argv=None):
     if args.select_camera and args.image is not None:
         parser.error("--select-camera không dùng cùng --image.")
     if args.name is None:
-        parser.error("Cần cung cấp --name khi đăng ký.")
+        parser.error("Cần cung cấp --id hoặc --name khi đăng ký.")
+    if args.samples is not None:
+        if args.samples < 1:
+            parser.error("--samples phải là số nguyên dương.")
+        if args.image:
+            parser.error("--samples chỉ dùng khi chụp từ webcam.")
 
     if args.image:
-        register_from_image(args.image, args.name, args.db_dir)
+        if len(args.image) == 1:
+            register_from_image(args.image[0], args.name, args.db_dir)
+        else:
+            registered = register_from_images(args.image, args.name, args.db_dir)
+            print(f"[Đăng ký] Đã lưu {registered}/{len(args.image)} mẫu.")
         return
 
     camera_id = args.camera_id if args.camera_id is not None else 0
@@ -344,7 +357,10 @@ def register_main(argv=None):
         camera_id = _select_camera()
         if camera_id is None:
             return
-    register_from_webcam(args.name, camera_id, args.db_dir)
+    if args.samples is None:
+        register_from_webcam(args.name, camera_id, args.db_dir)
+    else:
+        register_from_webcam(args.name, camera_id, args.db_dir, samples=args.samples)
 
 
 if __name__ == "__main__":

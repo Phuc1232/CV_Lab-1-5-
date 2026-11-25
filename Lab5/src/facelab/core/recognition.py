@@ -1,7 +1,9 @@
 """MTCNN detection, FaceNet embeddings and face matching."""
 
-import os
-from typing import Dict, List, Optional, Tuple
+from io import BytesIO
+from pathlib import Path
+import sqlite3
+from typing import List, Optional, Tuple
 
 import cv2
 import numpy as np
@@ -10,8 +12,12 @@ import torch
 import torch.nn.functional as F
 from facenet_pytorch import MTCNN, InceptionResnetV1
 
+from ..datasets.store import EmbeddingStore, normalize_identity
 from ..imaging.overlay import draw_stylish_box
 from ..paths import DEFAULT_DB_DIR
+
+
+_MODEL_SIGNATURE = "mtcnn-160-margin20-first:v1|facenet-inceptionresnetv1-vggface2-l2-f32-512:v1"
 
 
 class FaceRecognitionSystem:
@@ -27,6 +33,8 @@ class FaceRecognitionSystem:
         db_dir: str = DEFAULT_DB_DIR,
         similarity_threshold: float = 0.7,
         device: Optional[str] = None,
+        *,
+        load_existing: bool = True,
     ):
         self.db_dir = db_dir
         self.similarity_threshold = similarity_threshold
@@ -57,75 +65,54 @@ class FaceRecognitionSystem:
         print("[Mô hình] Đang tải mô hình FaceNet (InceptionResnetV1 Pretrained VGGFace2)...")
         self.facenet = InceptionResnetV1(pretrained="vggface2").eval().to(self.device)
 
-        # Cơ sở dữ liệu lưu trữ vector đặc trưng: { "Tên người": [vector_embedding_1, ...] }
-        self.database: Dict[str, List[torch.Tensor]] = {}
-
-        # Nạp cơ sở dữ liệu khuôn mặt mẫu đã biết
-        self.load_database()
+        self.database = EmbeddingStore(db_dir, _MODEL_SIGNATURE)
+        if load_existing:
+            self.load_database()
 
     def load_database(self) -> int:
-        """
-        Quét thư mục database, đọc từng ảnh và trích xuất vector đặc trưng bằng FaceNet.
-        Hỗ trợ định dạng: .jpg, .jpeg, .png, .bmp, .webp.
-        """
-        self.database.clear()
-        if not os.path.exists(self.db_dir):
-            os.makedirs(self.db_dir, exist_ok=True)
-            print(f"[Cơ sở dữ liệu] Đã tạo thư mục lưu khuôn mặt: {self.db_dir}")
-            return 0
-
-        valid_extensions = (".jpg", ".jpeg", ".png", ".bmp", ".webp")
-        image_files = [f for f in os.listdir(self.db_dir) if f.lower().endswith(valid_extensions)]
-
-        print(f"\n--- ĐANG NẠP CƠ SỞ DỮ LIỆU KHUÔN MẶT MẪU ({len(image_files)} tệp tin) ---")
-        loaded_count = 0
-
-        for file_name in image_files:
-            file_path = os.path.join(self.db_dir, file_name)
-            raw_name = os.path.splitext(file_name)[0]
-            person_name = raw_name.rsplit("_", 1)[0] if "_" in raw_name and raw_name.rsplit("_", 1)[1].isdigit() else raw_name
-
-            try:
-                img_pil = Image.open(file_path).convert("RGB")
-                face_tensor = self.mtcnn(img_pil)
-
-                if face_tensor is None:
-                    print(f"  [!] Cảnh báo: Không tìm thấy khuôn mặt hợp lệ trong ảnh: {file_name}")
-                    continue
-
-                if face_tensor.dim() == 4:
-                    face_tensor = face_tensor[0:1]
-                else:
-                    face_tensor = face_tensor.unsqueeze(0)
-
-                face_tensor = face_tensor.to(self.device)
-
-                with torch.no_grad():
-                    embedding = self.facenet(face_tensor)
-                    embedding = F.normalize(embedding, p=2, dim=1)
-
-                if person_name not in self.database:
-                    self.database[person_name] = []
-                self.database[person_name].append(embedding.cpu())
-
-                loaded_count += 1
-                print(f"  [+] Đã nạp thành công: {person_name} (tệp: {file_name})")
-
-            except Exception as e:
-                print(f"  [Lỗi] Không thể xử lý ảnh {file_name}: {e}")
-
-        print(f"[Cơ sở dữ liệu] Hoàn tất nạp {loaded_count} ảnh của {len(self.database)} người.\n")
+        """Reconcile the saved gallery with current images on disk."""
+        loaded_count = self.database.reconcile(self._embedding_from_image_bytes)
+        print(f"[Cơ sở dữ liệu] Đã lập chỉ mục {loaded_count} ảnh của {len(self.database)} ID.\n")
         return loaded_count
+
+    def _embed_faces(self, face_tensors: torch.Tensor) -> torch.Tensor:
+        if face_tensors.dim() == 3:
+            face_tensors = face_tensors.unsqueeze(0)
+        with torch.no_grad():
+            embeddings = self.facenet(face_tensors.to(self.device))
+            return F.normalize(embeddings, p=2, dim=1)
+
+    def _embedding_from_image_bytes(self, image_bytes: bytes) -> np.ndarray | None:
+        with Image.open(BytesIO(image_bytes)) as source:
+            face_tensors = self.mtcnn(source.convert("RGB"))
+        if face_tensors is None:
+            return None
+        if face_tensors.dim() == 4:
+            face_tensors = face_tensors[:1]
+        return self._embed_faces(face_tensors)[0].cpu().numpy()
+
+    def save_face_sample(self, name: str, image: Image.Image) -> Path | None:
+        """Persist a sample and the embedding of the exact JPEG written to disk."""
+        try:
+            identity = normalize_identity(name)
+            with BytesIO() as encoded:
+                image.save(encoded, format="JPEG", quality=95)
+                jpeg_bytes = encoded.getvalue()
+            embedding = self._embedding_from_image_bytes(jpeg_bytes)
+            if embedding is None:
+                print(f"[Đăng ký] Không phát hiện khuôn mặt hợp lệ trong mẫu cho ID '{identity}'.")
+                return None
+            path = self.database.save_jpeg(identity, jpeg_bytes, embedding)
+        except (OSError, RuntimeError, ValueError, sqlite3.Error) as error:
+            print(f"[Đăng ký] Không lưu được mẫu: {error}")
+            return None
+        print(f"[Đăng ký] Đã lưu ảnh và embedding cho ID '{path.parent.name}': {path}")
+        return path
 
     def register_new_face(self, name: str, frame_bgr: np.ndarray, box: Optional[np.ndarray] = None) -> bool:
         """
         Đăng ký một khuôn mặt mới trực tiếp từ khung hình webcam và lưu vào disk/database.
         """
-        if not name or name.strip() == "":
-            print("[Đăng ký] Lỗi: Tên không được để trống!")
-            return False
-
-        clean_name = name.strip().replace(" ", "_")
         rgb_frame = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
         img_pil = Image.fromarray(rgb_frame)
 
@@ -142,36 +129,7 @@ class FaceRecognitionSystem:
         else:
             crop_img = img_pil
 
-        face_tensor = self.mtcnn(crop_img)
-        if face_tensor is None:
-            print(f"[Đăng ký] Thất bại: Không phát hiện được khuôn mặt rõ nét cho '{clean_name}'.")
-            return False
-
-        if face_tensor.dim() == 4:
-            face_tensor = face_tensor[0:1]
-        else:
-            face_tensor = face_tensor.unsqueeze(0)
-
-        face_tensor = face_tensor.to(self.device)
-
-        with torch.no_grad():
-            embedding = self.facenet(face_tensor)
-            embedding = F.normalize(embedding, p=2, dim=1)
-
-        idx = 1
-        save_path = os.path.join(self.db_dir, f"{clean_name}.jpg")
-        while os.path.exists(save_path):
-            save_path = os.path.join(self.db_dir, f"{clean_name}_{idx}.jpg")
-            idx += 1
-
-        crop_img.save(save_path, format="JPEG", quality=95)
-
-        if clean_name not in self.database:
-            self.database[clean_name] = []
-        self.database[clean_name].append(embedding.cpu())
-
-        print(f"[Đăng ký] Thành công! Đã đăng ký '{clean_name}' và lưu vào: {save_path}")
-        return True
+        return self.save_face_sample(name, crop_img) is not None
 
     def compute_similarity(self, embedding: torch.Tensor) -> Tuple[str, str, float]:
         """
@@ -180,23 +138,21 @@ class FaceRecognitionSystem:
 
         Điều kiện so sánh:
           - Nếu similarity > 0.7: hiển thị "Matched"
-          - Nếu similarity <= 0.7 (hoặc < 0.7): hiển thị "Unknown"
+          - Nếu similarity <= 0.7: hiển thị "Unknown"
         """
-        if not self.database:
-            return "Unknown", "Unknown", 0.0
-
-        best_person = "Unknown"
+        best_person = None
         max_similarity = -1.0
 
-        embedding = embedding.cpu()
+        embedding = embedding.cpu().reshape(-1)
+        for person_name, stored_embedding in self.database.iter_embeddings():
+            known_embedding = torch.from_numpy(stored_embedding.astype(np.float32, copy=True))
+            sim = torch.sum(embedding * known_embedding).item()
+            if best_person is None or sim > max_similarity:
+                max_similarity = sim
+                best_person = person_name
 
-        for person_name, known_embeddings in self.database.items():
-            for known_emb in known_embeddings:
-                sim = torch.sum(embedding * known_emb).item()
-
-                if sim > max_similarity:
-                    max_similarity = sim
-                    best_person = person_name
+        if best_person is None:
+            return "Unknown", "Unknown", 0.0
 
         if max_similarity > self.similarity_threshold:
             status = "Matched"
@@ -237,14 +193,7 @@ class FaceRecognitionSystem:
         if face_tensors is None:
             return annotated_frame, detections
 
-        if face_tensors.dim() == 3:
-            face_tensors = face_tensors.unsqueeze(0)
-
-        face_tensors = face_tensors.to(self.device)
-
-        with torch.no_grad():
-            embeddings = self.facenet(face_tensors)
-            embeddings = F.normalize(embeddings, p=2, dim=1)
+        embeddings = self._embed_faces(face_tensors)
 
         for i, box in enumerate(boxes):
             prob = probs[i] if probs is not None else 0.0

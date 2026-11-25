@@ -131,19 +131,11 @@ self.facenet = InceptionResnetV1(pretrained="vggface2").eval().to(self.device)
 ---
 
 ### Cụm 3: Nạp & Quản lý Cơ sở dữ liệu mẫu
-```python
-def load_database(self) -> int:
-    ...
-    face_tensor = self.mtcnn(img_pil)
-    ...
-    with torch.no_grad():
-        embedding = self.facenet(face_tensor)
-        embedding = F.normalize(embedding, p=2, dim=1)
-    self.database[person_name].append(embedding.cpu())
-```
-- **`torch.no_grad()`** tắt việc ghi đồ thị tính gradient trong quá trình suy luận.
-- **`embedding.cpu()`**: Chuyển vector từ GPU (nếu dùng CUDA) về CPU RAM để giải phóng VRAM của card đồ họa.
-- **Quy tắc đặt tên file**: `NguyenVanA.jpg` hoặc `NguyenVanA_1.jpg` đều được hệ thống tự động bóc tách thành tên định danh `"NguyenVanA"`. Hỗ trợ một người có thể đăng ký nhiều góc mặt khác nhau để tăng độ chính xác.
+
+- Mỗi ảnh mẫu hợp lệ có một embedding 512 chiều được chuẩn hóa L2 và lưu trong `embeddings.sqlite3` ngay trong thư mục ảnh mẫu.
+- Khi chạy hoặc nhấn `R`, Lab 5 so nội dung ảnh với chỉ mục. Ảnh giữ nguyên dùng lại vector. Ảnh mới hoặc đã sửa đi qua MTCNN và FaceNet để cập nhật chỉ mục.
+- Các ảnh trong cùng thư mục `known_faces/<ID>/` thuộc cùng ID. Các tệp cũ `NguyenVanA.jpg` và `NguyenVanA_1.jpg` ở thư mục gốc vẫn thuộc ID `NguyenVanA`.
+- Đối sánh đọc lần lượt các embedding từ SQLite và dùng điểm cao nhất của mọi ảnh mẫu.
 
 ---
 
@@ -159,18 +151,14 @@ def register_new_face(self, name: str, frame_bgr: np.ndarray, box: Optional[np.n
   ...
   crop_img = img_pil.crop((crop_x1, crop_y1, crop_x2, crop_y2))
   ```
-  Lấy tọa độ khuôn mặt vừa phát hiện từ webcam, mở rộng thêm $10\%$ đường biên để lấy đủ góc cạnh và lưu ảnh chất lượng cao JPEG $95\%$ vào `known_faces/`.
-- **Cập nhật tức thì (In-memory Ingestion)**: Tính toán ngay vector 512D và nạp vào biến từ điển `self.database` trong RAM mà không cần khởi động lại chương trình.
+  Lấy tọa độ khuôn mặt vừa phát hiện từ webcam, mở rộng thêm $10\%$ đường biên để lấy đủ góc cạnh và lưu ảnh chất lượng cao JPEG $95\%$ vào `known_faces/<ID>/`.
+Vector mới được ghi vào SQLite và có hiệu lực ngay. Chụp tiếp với cùng ID để bổ sung các góc mặt khác.
 
 ---
 
 ### Cụm 5: Toán học trích xuất & Đối sánh Cosine Similarity
-```python
-def compute_similarity(self, embedding: torch.Tensor) -> Tuple[str, str, float]:
-    for person_name, known_embeddings in self.database.items():
-        for known_emb in known_embeddings:
-            sim = torch.sum(embedding * known_emb).item()
-```
+`compute_similarity()` duyệt embedding từ SQLite, tính cosine cho từng mẫu và lấy ID ứng với điểm cao nhất.
+
 - **Nguyên lý Toán học**:
   - Với hai vector bất kỳ $\mathbf{u}, \mathbf{v} \in \mathbb{R}^{512}$:
     $$\cos(\theta) = \frac{\mathbf{u} \cdot \mathbf{v}}{\|\mathbf{u}\|_2 \cdot \|\mathbf{v}\|_2}$$
