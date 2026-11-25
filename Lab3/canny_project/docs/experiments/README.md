@@ -3,7 +3,7 @@
 Mọi số liệu dưới đây trích từ `summary.csv`/`summary.md`/`extra.json` trong `results/<tên>/` của lần chạy cuối (2026-11-07). Môi trường: Python 3.14.7, NumPy 2.5.4, OpenCV 5.0.0, SciPy 1.18.1, scikit-image 0.26.0, macOS arm64, 8 CPU (`results/*/environment.json`). Chạy lại:
 
 ```bash
-for c in canny_project/configs/*.toml; do .venv/bin/python -m cannylab run "$c" --out canny_project/results/$(basename "$c" .toml); done
+for c in Lab3/canny_project/configs/*.toml; do .venv/bin/python -m cannylab run "$c" --out Lab3/canny_project/results/$(basename "$c" .toml); done
 ```
 
 Ký hiệu chung:

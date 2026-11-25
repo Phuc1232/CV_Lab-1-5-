@@ -3,7 +3,7 @@
 Áp dụng cho mọi agent và người viết code trong `canny_project/`. Quy tắc chuyên biệt nằm ở `rules/`; khi có mâu thuẫn, file chuyên biệt thắng.
 
 ## Bối cảnh
-- Dự án mở rộng Lab3 (Canny Edge Detector, slide chương 2 phần 2, trang 26) thành một dự án nghiên cứu thuật toán. `../Lab3/` là bài đã nộp: **không sửa**.
+- Dự án mở rộng Lab3 (Canny Edge Detector, slide chương 2 phần 2, trang 26) thành một dự án nghiên cứu thuật toán. `../` (Lab3) là bài đã nộp: **không sửa**.
 - Yêu cầu của đề có mã P1–P4 (thực hành), T1–T3 (lý thuyết), E1–E4 (mở rộng); xem `docs/development/phase1_assignment_analysis.md`. Mọi tính năng mới phải truy về một mã.
 - Tài liệu viết **tiếng Việt**; tên biến, hàm, module viết tiếng Anh `snake_case`.
 
@@ -29,10 +29,10 @@
 ## Lệnh
 ```bash
 # ở CV_Labs/
-.venv/bin/pip install -e canny_project
-.venv/bin/python -m pytest canny_project/tests -q
+.venv/bin/pip install -e Lab3/canny_project
+.venv/bin/python -m pytest Lab3/canny_project/tests -q
 .venv/bin/python -m cannylab list
-.venv/bin/python -m cannylab run canny_project/configs/x1_thu_vien.toml
+.venv/bin/python -m cannylab run Lab3/canny_project/configs/x1_thu_vien.toml
 ```
 
 ## Bản đồ quy tắc
