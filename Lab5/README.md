@@ -40,14 +40,26 @@ Mở webcam để nhận diện.
 
 | Tùy chọn của `Lab5.py` | Mặc định | Công dụng |
 |---|---|---|
-| `--camera` | `0` | Chọn webcam |
+| `--camera N` | `0` | Mở webcam có chỉ số `N` |
+| `--list-cameras` | | Kiểm tra camera từ `0` đến `4` và in các chỉ số khả dụng |
+| `--select-camera` | | Dò camera và chọn chỉ số trong PowerShell |
 | `--db-dir` | `known_faces/` ở gốc Lab 5 | Chọn thư mục ảnh mẫu |
 | `--threshold` | `0.7` | Đặt ngưỡng cosine |
 | `--frame-skip` | `2` | Đặt khoảng cách giữa hai khung hình chạy suy luận |
 | `--device` | Tự chọn CUDA nếu khả dụng, nếu không dùng CPU | Chỉ định `cpu` hoặc `cuda` |
 | `--config` | Không nạp cấu hình | Nạp bảng `[recognition]` từ tệp TOML |
 
-`register_face.py` cũng nhận `--camera` và `--db-dir`. Dùng cùng `--db-dir` cho hai lệnh nếu lưu ảnh ngoài thư mục mặc định.
+### Chọn camera
+
+Dùng `--select-camera` để xem danh sách camera khả dụng và nhập chỉ số muốn mở. Nhấn Enter nếu muốn hủy. Nếu đã biết chỉ số, truyền trực tiếp qua `--camera`, kể cả chỉ số ngoài phạm vi dò.
+
+```powershell
+.\.venv\Scripts\python.exe Lab5.py --select-camera
+.\.venv\Scripts\python.exe Lab5.py --camera 1
+.\.venv\Scripts\python.exe register_face.py --name "NguyenVanA" --select-camera
+```
+
+Dùng `--list-cameras` với một trong hai lệnh để chỉ xem danh sách. `register_face.py --list-cameras` có thể chạy riêng. Dùng cùng `--db-dir` cho hai lệnh nếu lưu ảnh ngoài thư mục mặc định.
 
 Có thể chạy nhận diện qua mô-đun và chọn cấu hình mẫu.
 
@@ -55,7 +67,7 @@ Có thể chạy nhận diện qua mô-đun và chọn cấu hình mẫu.
 .\.venv\Scripts\python.exe -m src.facelab.cli --config configs/default.toml --camera 0
 ```
 
-Giá trị truyền trên dòng lệnh ưu tiên hơn cấu hình TOML. Với các tùy chọn còn lại, chương trình dùng giá trị mặc định trong bảng. `db_dir` tương đối trong TOML được tính từ thư mục của tệp cấu hình. Đường dẫn truyền trực tiếp qua `--db-dir` được tính từ thư mục hiện hành.
+Camera chọn trong PowerShell hoặc qua `--camera` ưu tiên hơn `camera` trong bảng `[recognition]`. Các tùy chọn khác trên dòng lệnh cũng ưu tiên hơn cấu hình TOML. Với giá trị còn thiếu, chương trình dùng mặc định trong bảng trên. `db_dir` tương đối trong TOML được tính từ thư mục của tệp cấu hình. Đường dẫn truyền trực tiếp qua `--db-dir` được tính từ thư mục hiện hành.
 
 | Phím trong cửa sổ nhận diện | Thao tác |
 |---|---|

@@ -318,3 +318,89 @@ def test_recognition_config_rejects_invalid_values(tmp_path, capsys):
 
     assert error.value.code == 2
     assert "--config" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    ("entry_point", "capture_options"),
+    [(cli.main, {"width": 640, "height": 480}), (cli.register_main, {})],
+)
+def test_camera_list_releases_probes_before_opening_next(
+    entry_point, capture_options, monkeypatch, capsys,
+):
+    captures = [Mock() for _ in range(5)]
+    for camera_id, capture in enumerate(captures):
+        capture.isOpened.return_value = camera_id in (0, 3)
+
+    def open_camera(camera_id, **kwargs):
+        if camera_id > 0:
+            captures[camera_id - 1].release.assert_called_once_with()
+        return captures[camera_id]
+
+    webcam = Mock(side_effect=open_camera)
+    run = Mock()
+    register = Mock()
+    monkeypatch.setattr(cli, "open_webcam", webcam)
+    monkeypatch.setattr(cli, "run_webcam", run)
+    monkeypatch.setattr(cli, "register_from_webcam", register)
+
+    entry_point(["--list-cameras"])
+
+    assert webcam.call_args_list == [call(index, **capture_options) for index in range(5)]
+    captures[-1].release.assert_called_once_with()
+    assert "Camera khả dụng: #0, #3" in capsys.readouterr().out
+    run.assert_not_called()
+    register.assert_not_called()
+
+
+def test_recognition_camera_selection_retries_and_overrides_config(tmp_path, monkeypatch):
+    config_path = tmp_path / "recognition.toml"
+    config_path.write_text("[recognition]\ncamera = 3\n", encoding="utf-8")
+    prompt = Mock(side_effect=["không phải chỉ số", "2", "0"])
+    run = Mock()
+    monkeypatch.setattr("builtins.input", prompt)
+    monkeypatch.setattr(cli, "_list_cameras", Mock(return_value=[0, 3]))
+    monkeypatch.setattr(cli, "run_webcam", run)
+
+    cli.main(["--config", str(config_path), "--select-camera"])
+
+    assert prompt.call_count == 3
+    run.assert_called_once_with(camera_id=0)
+
+
+@pytest.mark.parametrize("cancel", [EOFError, KeyboardInterrupt])
+def test_camera_selection_cancel_skips_recognition(cancel, monkeypatch):
+    run = Mock()
+    monkeypatch.setattr("builtins.input", Mock(side_effect=cancel))
+    monkeypatch.setattr(cli, "_list_cameras", Mock(return_value=[0]))
+    monkeypatch.setattr(cli, "run_webcam", run)
+
+    cli.main(["--select-camera"])
+
+    run.assert_not_called()
+
+
+def test_registration_uses_interactive_camera_selection(monkeypatch):
+    register = Mock()
+    select = Mock(return_value=0)
+    monkeypatch.setattr(cli, "_select_camera", select)
+    monkeypatch.setattr(cli, "register_from_webcam", register)
+
+    cli.register_main(["--name", "Alice", "--select-camera"])
+
+    select.assert_called_once_with()
+    register.assert_called_once_with("Alice", 0, DEFAULT_DB_DIR)
+
+
+@pytest.mark.parametrize(
+    "camera_options",
+    [["--camera", "0", "--select-camera"], ["--image", "sample.jpg", "--select-camera"]],
+)
+def test_registration_rejects_conflicting_camera_options(camera_options, monkeypatch):
+    select = Mock()
+    monkeypatch.setattr(cli, "_select_camera", select)
+
+    with pytest.raises(SystemExit) as error:
+        cli.register_main(["--name", "Alice", *camera_options])
+
+    assert error.value.code == 2
+    select.assert_not_called()

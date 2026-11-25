@@ -16,6 +16,10 @@ from .imaging.overlay import draw_hud
 from .paths import DEFAULT_DB_DIR
 
 
+_CAMERA_SCAN_COUNT = 5
+_RECOGNITION_CAPTURE_OPTIONS = {"width": 640, "height": 480}
+
+
 def _configure_console():
     # Cấu hình console tiếng Việt trên Windows
     if sys.platform == "win32":
@@ -24,6 +28,70 @@ def _configure_console():
             sys.stderr.reconfigure(encoding="utf-8")
         except Exception:
             pass
+
+
+def _add_camera_arguments(parser: argparse.ArgumentParser):
+    camera_options = parser.add_mutually_exclusive_group()
+    camera_options.add_argument(
+        "--camera",
+        dest="camera_id",
+        type=int,
+        help="Chỉ số camera (mặc định: 0)",
+    )
+    camera_options.add_argument(
+        "--list-cameras",
+        action="store_true",
+        help=f"Liệt kê camera khả dụng trong phạm vi 0–{_CAMERA_SCAN_COUNT - 1}",
+    )
+    camera_options.add_argument(
+        "--select-camera",
+        action="store_true",
+        help="Chọn camera khả dụng trong terminal",
+    )
+
+
+def _list_cameras(**capture_options: int) -> list[int]:
+    print(f"[Webcam] Đang dò camera từ #0 đến #{_CAMERA_SCAN_COUNT - 1}...")
+    camera_ids = []
+    for camera_id in range(_CAMERA_SCAN_COUNT):
+        cap = open_webcam(camera_id, **capture_options)
+        try:
+            if cap.isOpened():
+                camera_ids.append(camera_id)
+        finally:
+            cap.release()
+
+    if camera_ids:
+        print("[Webcam] Camera khả dụng: " + ", ".join(f"#{index}" for index in camera_ids))
+    else:
+        print("[Webcam] Không tìm thấy camera khả dụng trong phạm vi đã dò.")
+    return camera_ids
+
+
+def _select_camera(**capture_options: int) -> int | None:
+    try:
+        camera_ids = _list_cameras(**capture_options)
+        if not camera_ids:
+            return None
+
+        while True:
+            choice = input("Nhập chỉ số camera (Enter để hủy): ").strip()
+            if not choice:
+                break
+
+            try:
+                camera_id = int(choice)
+            except ValueError:
+                camera_id = None
+
+            if camera_id in camera_ids:
+                return camera_id
+            print("[Webcam] Vui lòng nhập một chỉ số camera trong danh sách.")
+    except (EOFError, KeyboardInterrupt):
+        pass
+
+    print("[Webcam] Đã hủy chọn camera.")
+    return None
 
 
 def run_webcam(
@@ -52,7 +120,7 @@ def run_webcam(
     )
 
     print(f"\n[Webcam] Đang kết nối tới Camera #{camera_id}...")
-    cap = open_webcam(camera_id, width=640, height=480)
+    cap = open_webcam(camera_id, **_RECOGNITION_CAPTURE_OPTIONS)
 
     if not cap.isOpened():
         print(f"[LỖI] Không thể mở webcam với ID={camera_id}!")
@@ -185,12 +253,7 @@ def main(argv=None):
         argument_default=argparse.SUPPRESS,
     )
     parser.add_argument("--config", type=Path, default=None, help="Tệp cấu hình TOML tùy chọn")
-    parser.add_argument(
-        "--camera",
-        dest="camera_id",
-        type=int,
-        help="Chỉ số ID camera (mặc định: 0)",
-    )
+    _add_camera_arguments(parser)
     parser.add_argument(
         "--db-dir",
         help=f"Thư mục chứa ảnh khuôn mặt mẫu đã biết (mặc định: {DEFAULT_DB_DIR})",
@@ -212,6 +275,11 @@ def main(argv=None):
     )
 
     options = vars(parser.parse_args(argv))
+    if options.pop("list_cameras", False):
+        _list_cameras(**_RECOGNITION_CAPTURE_OPTIONS)
+        return
+
+    select_camera = options.pop("select_camera", False)
     config_path = options.pop("config")
     settings = {}
     if config_path is not None:
@@ -225,6 +293,13 @@ def main(argv=None):
     if "camera" in settings:
         settings["camera_id"] = settings.pop("camera")
     settings.update(options)
+
+    if select_camera:
+        camera_id = _select_camera(**_RECOGNITION_CAPTURE_OPTIONS)
+        if camera_id is None:
+            return
+        settings["camera_id"] = camera_id
+
     run_webcam(**settings)
 
 
@@ -234,8 +309,7 @@ def register_main(argv=None):
     parser.add_argument(
         "--name",
         type=str,
-        required=True,
-        help="Tên của người cần đăng ký (ví dụ: 'NguyenVanA' hoặc 'Alice')",
+        help="Tên người cần đăng ký (bắt buộc khi đăng ký)",
     )
     parser.add_argument(
         "--image",
@@ -243,12 +317,7 @@ def register_main(argv=None):
         default=None,
         help="Đường dẫn file ảnh có sẵn trên đĩa (nếu không cung cấp, sẽ mở webcam để chụp)",
     )
-    parser.add_argument(
-        "--camera",
-        type=int,
-        default=0,
-        help="ID camera khi chụp từ webcam (mặc định: 0)",
-    )
+    _add_camera_arguments(parser)
     parser.add_argument(
         "--db-dir",
         type=str,
@@ -258,10 +327,24 @@ def register_main(argv=None):
 
     args = parser.parse_args(argv)
 
+    if args.list_cameras:
+        _list_cameras()
+        return
+    if args.select_camera and args.image is not None:
+        parser.error("--select-camera không dùng cùng --image.")
+    if args.name is None:
+        parser.error("Cần cung cấp --name khi đăng ký.")
+
     if args.image:
         register_from_image(args.image, args.name, args.db_dir)
-    else:
-        register_from_webcam(args.name, args.camera, args.db_dir)
+        return
+
+    camera_id = args.camera_id if args.camera_id is not None else 0
+    if args.select_camera:
+        camera_id = _select_camera()
+        if camera_id is None:
+            return
+    register_from_webcam(args.name, camera_id, args.db_dir)
 
 
 if __name__ == "__main__":
