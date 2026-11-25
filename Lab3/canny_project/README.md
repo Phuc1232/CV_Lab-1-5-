@@ -1,6 +1,6 @@
 # canny_project: Canny Edge Detector từ toán học đến thực nghiệm
 
-Mở rộng [Lab3](../Lab3/README.md) (bài thực hành chương 2 phần 2, slide trang 26) thành một dự án nghiên cứu thuật toán. Canny được **tự cài đặt bằng NumPy và tái tạo từng pixel** `cv2.Canny` lẫn `skimage.feature.canny`. Dự án kèm hệ thống dữ liệu có ground truth, Experiment Engine tái lập được, Evaluation Engine và 10 thực nghiệm trả lời toàn bộ câu hỏi của đề. Không có GUI.
+Mở rộng [Lab3](../README.md) (bài thực hành chương 2 phần 2, slide trang 26) thành một dự án nghiên cứu thuật toán. Canny được **tự cài đặt bằng NumPy và tái tạo từng pixel** `cv2.Canny` lẫn `skimage.feature.canny`. Dự án kèm hệ thống dữ liệu có ground truth, Experiment Engine tái lập được, Evaluation Engine và 10 thực nghiệm trả lời toàn bộ câu hỏi của đề. Không có GUI.
 
 ## Kết quả chính
 | | Kết quả | Nguồn |
@@ -17,15 +17,19 @@ Mở rộng [Lab3](../Lab3/README.md) (bài thực hành chương 2 phần 2, sl
 
 Chi tiết: [docs/experiments/README.md](docs/experiments/README.md). Trả lời lý thuyết: [docs/theory/README.md](docs/theory/README.md).
 
+## Demo
+[demo.ipynb](demo.ipynb): đi theo mạch của Lab3.ipynb (Bài 1 → 4) và thêm phần mở rộng, có ảnh từng bước, biểu đồ so sánh F1,
+histogram độ lớn gradient và đo tốc độ. Chọn kernel của `CV_Labs/.venv` rồi *Run All* (khoảng 20 giây).
+
 ## Cài đặt và chạy
 Dùng chung `.venv` ở `CV_Labs/` (Python 3.14):
 ```bash
 cd CV_Labs
-.venv/bin/pip install -e canny_project
-.venv/bin/python -m pytest canny_project/tests -q            # 223 test (thêm -m "not slow" để chạy nhanh)
+.venv/bin/pip install -e Lab3/canny_project
+.venv/bin/python -m pytest Lab3/canny_project/tests -q            # 223 test (thêm -m "not slow" để chạy nhanh)
 .venv/bin/python -m cannylab list                             # 10 thuật toán đã đăng ký
 .venv/bin/python -m cannylab verify                           # so khớp với cv2 / skimage
-.venv/bin/python -m cannylab run canny_project/configs/x3_anh_kho.toml
+.venv/bin/python -m cannylab run Lab3/canny_project/configs/x3_anh_kho.toml
 .venv/bin/python -m cannylab dataset /tmp/ds --family shapes --count 8 --degradations '[{"noise_sigma":0.1}]'
 ```
 
