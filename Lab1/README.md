@@ -23,7 +23,7 @@ pip install opencv-python pillow
 1. `doc_va_hien_thi_anh(duong_dan_anh)`:
    - **Đọc ảnh**:
      - **OpenCV (`cv2.imread`)**: Đọc ảnh vào mảng nhiều chiều NumPy (`numpy.ndarray`). Mặc định thứ tự các kênh màu là **BGR** (Blue - Green - Red).
-     - **Pillow (`Image.open`)**: Đọc ảnh thành đối tượng ảnh Pillow (`PIL.Image`). Mặc định thứ tự kênh màu là **RGB** (Red - Green - Blue).
+     - **Pillow (`Image.open`)**: Đọc ảnh thành đối tượng ảnh Pillow (`PIL.Image`). Hệ màu tùy theo tệp và được lưu trong thuộc tính `mode` (ví dụ `RGB`, `L` hoặc `RGBA`).
    - **Kiểm tra thông số ảnh**:
      - Chiều cao (`height`), chiều rộng (`width`), số kênh màu (`channels`).
      - Đảm bảo an toàn khi kiểm tra số kênh màu (`len(shape) > 2`) để tránh lỗi `IndexError` đối với ảnh đơn sắc (grayscale).
@@ -47,7 +47,7 @@ pip install opencv-python pillow
        - **H (Hue - Sắc thái màu)**: Góc màu trên vòng tròn màu ($0^\circ \rightarrow 360^\circ$). Trong kiểu dữ liệu 8-bit (`uint8`), OpenCV chia đôi dải này thành $[0, 179]$.
        - **S (Saturation - Độ no màu/bão hòa)**: Trực quan hóa độ đậm nhạt của màu, nhận giá trị trong đoạn $[0, 255]$.
        - **V (Value - Cường độ sáng)**: Thể hiện độ sáng của điểm ảnh trong đoạn $[0, 255]$.
-     - _Ứng dụng_: Rất quan trọng trong các bài toán phân đoạn vật thể theo màu sắc (Color Segmentation) hoặc bám theo màu (Color Tracking), vì màu sắc ($H$) không bị phụ thuộc vào điều kiện ánh sáng môi trường ($V$).
+     - _Ứng dụng_: Rất quan trọng trong các bài toán phân đoạn vật thể theo màu sắc (Color Segmentation) hoặc bám theo màu (Color Tracking), vì HSV biểu diễn sắc thái ($H$) và độ sáng ($V$) ở hai kênh riêng.
      - _Lưu ý khi hiển thị_: Do `cv2.imshow` mặc định coi ma trận pixel là BGR, nên việc hiển thị ảnh HSV trực tiếp sẽ xuất hiện bảng màu biến dị (pseudo-color).
    - **3. Không gian màu LAB (CIE L*a*b*)**:
      - Hàm sử dụng: `cv2.cvtColor(anh, cv2.COLOR_BGR2LAB)`.
@@ -66,7 +66,7 @@ pip install opencv-python pillow
      - _Tại sao nên chọn resize theo tỷ lệ thay vì ép kích thước cố định (ví dụ 500x400)?_
        - **Bảo toàn tỷ lệ khung hình (Aspect Ratio)**: Ép cứng cả chiều rộng và chiều cao sẽ làm méo hình nếu ảnh gốc không trùng tỷ lệ.
        - **Tránh vỡ ảnh khi ảnh nhỏ**: Nếu ảnh đầu vào nhỏ hơn kích thước cố định, việc phóng to sẽ làm vỡ nét (pixelation). Ngược lại, resize theo tỷ lệ đảm bảo ảnh luôn giữ đúng hình dạng tự nhiên của vật thể.
-     - _Kỹ thuật nội suy (Interpolation)_: Sử dụng `cv2.INTER_AREA` khi thu nhỏ ảnh để đạt chất lượng khử răng cưa tốt nhất.
+     - _Kỹ thuật nội suy (Interpolation)_: Mã dùng `cv2.INTER_AREA` khi thu nhỏ và `cv2.INTER_CUBIC` khi hệ số từ 1 trở lên.
 
 ---
 
@@ -80,17 +80,37 @@ pip install opencv-python pillow
      - **Đường thẳng (`cv2.line`)**: Kẻ đường ngang ở 10% chiều cao bức ảnh (Màu xanh dương: `(255, 0, 0)`).
      - **Hình chữ nhật (`cv2.rectangle`)**: Đóng khung vùng trung tâm ảnh (Màu xanh lá: `(0, 255, 0)`).
      - **Hình tròn (`cv2.circle`)**: Vẽ hình tròn tại tâm ảnh (Màu đỏ: `(0, 0, 255)`).
-     - **Văn bản (`cv2.putText`)**: Viết chữ `"OpenCV & Python"` ở mép dưới ảnh (Màu trắng: `(255, 255, 255)` với phông chữ `FONT_HERSHEY_SIMPLEX` và khử răng cưa `cv2.LINE_AA`).
+     - **Văn bản (`cv2.putText`)**: Viết chữ `"OpenCV & Python"` tại tọa độ khoảng 20% chiều rộng và 60% chiều cao (Màu trắng: `(255, 255, 255)` với phông chữ `FONT_HERSHEY_SIMPLEX` và khử răng cưa `cv2.LINE_AA`).
 
 ---
 
 ## Hướng dẫn chạy chương trình
 
-1. Chạy trực tiếp từ dòng lệnh:
-   ```bash
-   python Lab1/Lab1.py
-   ```
-2. Khi chương trình hỏi đường dẫn ảnh:
-   - **Cách 1**: Nhấn phím `Enter` để chương trình tự động sử dụng ảnh mẫu có sẵn (`anh.jpg`).
-   - **Cách 2**: Nhập đường dẫn bất kỳ đến tệp ảnh trên máy tính của bạn.
-3. Nhấn phím bất kỳ trên cửa sổ ảnh để xem tuần tự kết quả từng phần (Phần 1 $\rightarrow$ Phần 2 $\rightarrow$ Phần 3 $\rightarrow$ Phần 4).
+Cài OpenCV và Pillow theo lệnh ở trên. Chạy từ thư mục gốc của repo trong môi trường có giao diện đồ họa.
+
+```bash
+python Lab1/Lab1.py
+```
+
+1. Nhấn `Enter` để dùng `Lab1/anh.jpg` hoặc nhập đường dẫn tới một ảnh khác. Đường dẫn tương đối được tính từ thư mục hiện hành.
+2. Khi kết quả hiện ra, chọn cửa sổ ảnh OpenCV và nhấn phím bất kỳ để sang phần kế tiếp. Chương trình lần lượt đọc ảnh, chuyển hệ màu, cắt và thu nhỏ, rồi vẽ hình và chữ.
+3. Xem ảnh kết quả trong `Lab1/`. Các lần chạy dùng cùng tên tệp đầu ra, vì vậy hãy sao chép kết quả sang thư mục khác nếu muốn so sánh nhiều lần chạy.
+
+## Ảnh do chương trình tạo
+
+| Phần | Tệp đầu ra |
+| --- | --- |
+| Đọc và lưu | `anh_luu.png`, `anh_luu_pillow.jpg` |
+| Chuyển hệ màu | `anh_grayscale.jpg`, `anh_hsv.jpg`, `anh_lab.jpg` |
+| Cắt và thu nhỏ | `anh_cat.jpg`, `anh_resize.jpg` |
+| Vẽ hình và chữ | `anh_ve.jpg` |
+
+`anh_hsv.jpg` và `anh_lab.jpg` là ảnh minh họa màu giả. Chương trình ghi các ma trận kênh bằng OpenCV, nên khi mở bằng trình xem ảnh, màu hiển thị được diễn giải như ảnh màu thông thường.
+
+## Bài tập quan sát
+
+1. Chạy với `anh.jpg`, rồi thử một ảnh JPEG có tỷ lệ khung hình khác. Ghi lại chiều rộng và chiều cao trước và sau khi thu nhỏ.
+2. So sánh `anh_cat.jpg` và `anh_resize.jpg`. Xác định ảnh nào giữ toàn bộ khung cảnh và ảnh nào chỉ lấy vùng ở giữa.
+3. Quan sát ảnh mức xám và hai ảnh màu giả. Giải thích vì sao cùng một ảnh đầu vào lại cho ba cách biểu diễn khác nhau.
+
+Xem [quy tắc cho agent](AGENTS.md) khi cập nhật tài liệu trong Lab 1.
